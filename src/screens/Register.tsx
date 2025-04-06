@@ -2,7 +2,10 @@ import React, { useState } from 'react';
 import { View, StyleSheet, Image, Text } from 'react-native';
 import { TextInput, Button } from 'react-native-paper';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useNavigation } from 'expo-router';
+import { useNavigation } from '@react-navigation/native';
+import { useFonts } from 'expo-font';
+import { FontAwesome, AntDesign } from '@expo/vector-icons';
+
 
 type RegisterScreenProps = {
   onRegister: () => void;
@@ -13,14 +16,24 @@ const RegisterScreen: React.FC<RegisterScreenProps> = ({ onRegister, onLoginRedi
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [password2, setPassword2] = useState('');
-  const navigation = useNavigation;
+  const navigation = useNavigation();
+
+  const [fontsLoaded] = useFonts({
+    'Poppins-Medium': require('../../assets/fonts/Poppins-Medium.ttf'),
+    'Poppins-SemiBold': require('../../assets/fonts/Poppins-SemiBold.ttf'),
+  });
+
+  if (!fontsLoaded){
+    return null;
+  }
 
   return (
-    <LinearGradient colors={['#1A1A2E', '#16213E']} style={styles.container}>
-      <Image source={require('../assets/logo.png')} style={styles.logo} />
-
+    <View style={styles.container}>
       <View style={styles.card}>
-        <Text style={styles.title}>Cadastrar-se</Text>
+        <Text style={[styles.title, { fontFamily: 'Poppins-SemiBold' }]}>Seja bem vindo!</Text>
+        <Text style={[styles.subtitle, { fontFamily: 'Poppins-Medium' }]}>
+        Faça seu cadastro, agora mesmo
+        </Text>
 
         <TextInput
           label="E-mail"
@@ -52,45 +65,39 @@ const RegisterScreen: React.FC<RegisterScreenProps> = ({ onRegister, onLoginRedi
           Registrar
         </Button>
 
-        <Text style={styles.forgotPassword} onPress={() => navigation.navigate('LoginScreen')}>
+        <Text style={[styles.login, { fontFamily: 'Poppins-Medium' }]} onPress={() => navigation.navigate('Login')}>
           Já tem uma conta? Fazer login
         </Text>
       </View>
-    </LinearGradient>
+    </View>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: '#D6D4CE',
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 20,
-  },
-  logo: {
-    width: 100,
-    height: 100,
-    marginBottom: 30,
-    borderRadius: 10,
+    padding: 16,
   },
   card: {
     width: '100%',
     maxWidth: 400,
     padding: 25,
-    borderRadius: 15,
-    backgroundColor: '#fff',
-    elevation: 5,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 6,
   },
   title: {
-    fontSize: 28,
+    fontSize: 32,
     fontWeight: '700',
-    color: '#0C2489',
-    marginBottom: 25,
+    color: '#121212',
+    marginBottom: 20,
     textAlign: 'center',
+  },
+  subtitle:{
+    fontSize: 14,
+    color: '#121212',
+    marginBottom: 20,
+    textAlign:'center',
   },
   input: {
     marginBottom: 20,
@@ -100,14 +107,14 @@ const styles = StyleSheet.create({
   },
   button: {
     marginTop: 10,
-    backgroundColor: '#0C2489',
-    paddingVertical: 12,
+    backgroundColor: '#E63C3A',
+    paddingVertical: 6,
     borderRadius: 8,
   },
-  forgotPassword: {
+  login: {
     marginTop: 20,
     textAlign: 'center',
-    color: '#0C2489',
+    color: '#121212',
     fontSize: 14,
     fontWeight: '600',
   },

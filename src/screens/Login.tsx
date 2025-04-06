@@ -1,25 +1,36 @@
 import React, { useState } from 'react';
-import { View, StyleSheet, Image, Text } from 'react-native';
+import { View, StyleSheet, Text, TouchableOpacity } from 'react-native';
 import { TextInput, Button } from 'react-native-paper';
-import { LinearGradient } from 'expo-linear-gradient';
 import { useNavigation } from '@react-navigation/native';
+import { useFonts } from 'expo-font';
+import { FontAwesome, AntDesign } from '@expo/vector-icons';
 
 type LoginScreenProps = {
   onLogin: () => void;
   onRegisterRedirect: () => void; 
 };
 
-const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin }) => {
+const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, onRegisterRedirect }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const navigation = useNavigation();
 
-  return (
-    <LinearGradient colors={['#1A1A2E', '#16213E']} style={styles.container}>
-      <Image source={require('../assets/logo.png')} style={styles.logo} />
+  const [fontsLoaded] = useFonts({
+    'Poppins-Medium': require('../../assets/fonts/Poppins-Medium.ttf'),
+    'Poppins-SemiBold': require('../../assets/fonts/Poppins-SemiBold.ttf'),
+  });
 
+  if (!fontsLoaded) {
+    return null; // ou um loading spinner se quiser
+  }
+
+  return (
+    <View style={styles.container}>
       <View style={styles.card}>
-        <Text style={styles.title}>Login</Text>
+        <Text style={[styles.title, { fontFamily: 'Poppins-SemiBold' }]}>Olá de novo!</Text>
+        <Text style={[styles.subtitle, { fontFamily: 'Poppins-Medium' }]}>
+          Bem-vindo de volta! Você fez falta!
+        </Text>
 
         <TextInput
           label="E-mail"
@@ -40,42 +51,59 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin }) => {
           Entrar
         </Button>
 
-        <Text style={styles.forgotPassword} onPress={() => navigation.navigate('Register')}>
+        <View style={styles.dividir}/>
+        <Text
+          style={[styles.cadastro, { fontFamily: 'Poppins-Medium' }]}
+          onPress={() => {
+            
+            navigation.navigate('Register');
+          }}
+        >
           Não tem uma conta ainda? Cadastrar-se
         </Text>
+
+        <Text style={[styles.or]}>
+          ou
+        </Text>
+
+        <View style={styles.socialButtonsContainer}>
+        <TouchableOpacity style={styles.socialButton}>
+          <AntDesign name="google" size={24} color="black" />
+        </TouchableOpacity>
+
+        <TouchableOpacity style={styles.socialButton}>
+          <FontAwesome name="apple" size={24} color="black" />
+        </TouchableOpacity>
       </View>
-    </LinearGradient>
+
+      </View>
+    </View>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: '#D6D4CE',
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 20,
-  },
-  logo: {
-    width: 100,
-    marginBottom: 30,
-    borderRadius: 10,
+    padding: 16,
   },
   card: {
     width: '100%',
     maxWidth: 400,
     padding: 25,
-    borderRadius: 15,
-    backgroundColor: '#fff',
-    elevation: 5,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 6,
   },
   title: {
-    fontSize: 28,
+    fontSize: 32,
     fontWeight: '700',
-    color: '#0C2489',
+    color: '#121212',
+    marginBottom: 10,
+    textAlign: 'center',
+  },
+  subtitle: {
+    fontSize: 14,
+    color: '#121212',
     marginBottom: 25,
     textAlign: 'center',
   },
@@ -84,20 +112,47 @@ const styles = StyleSheet.create({
     height: 50,
     borderRadius: 8,
     backgroundColor: '#f9f9f9',
-    color: '#0C2489',
   },
   button: {
     marginTop: 10,
-    backgroundColor: '#0C2489',
-    paddingVertical: 12,
+    backgroundColor: '#E63C3A',
+    paddingVertical: 6,
     borderRadius: 8,
   },
-  forgotPassword: {
+  cadastro: {
     marginTop: 20,
     textAlign: 'center',
-    color: '#0C2489',
+    color: '#121212',
     fontSize: 14,
     fontWeight: '600',
+  },
+  or:{
+    marginVertical: 20,
+    fontSize: 16,
+    marginTop:'10%',
+    fontWeight: 'bold',
+    textAlign:'center',
+  },
+  socialButtonsContainer:{
+    flexDirection: 'row',
+    gap: 16,
+    alignItems:'center',
+    justifyContent:'center',
+    paddingTop:'7%',
+  },
+  socialButton: {
+    backgroundColor: '#E0E0E0',
+    padding: 14,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  dividir:{
+  height: 1,
+  width: '100%',
+  marginTop: '10%',
+  backgroundColor: 'rgba(0,0,0,0.20)',
+  marginBottom: 12,
   },
 });
 
