@@ -1,7 +1,6 @@
-import Routes from './src/routes';
+import React from 'react';
+import AppNavigator from './src/routes/AppNavigator';
 
-const App = () => {
-  return <Routes />;
-};
-
-export default App;
+export default function App() {
+  return <AppNavigator />;
+}

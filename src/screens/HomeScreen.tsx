@@ -69,7 +69,7 @@ const styles = StyleSheet.create({
   },
   secondPanel: {
     width: '100%',
-    padding: 30,
+    padding: 50,
     backgroundColor: '#121212',
     borderRadius: 10,
   },
@@ -89,17 +89,26 @@ const styles = StyleSheet.create({
   },
   row: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 10,
+  justifyContent: 'center',
+  flexWrap: 'wrap',
+  gap: 20,
+  marginBottom: 40,
   },
   infoBox: {
-    flex: 1,
+    width: 90,
+    height: 90,
     alignItems: 'center',
-    marginLeft: 20,
+    justifyContent: 'center',
+    marginHorizontal: 10, // espaço entre eles
+    backgroundColor: '#444444',
+    borderRadius: 16,
+
   },
   infoText: {
     color: '#fff',
-    marginTop: 2,
+    marginTop: 4,
+    fontSize: 13,
+    textAlign: 'center',
   },
   infoRow: {
     flex: 1,

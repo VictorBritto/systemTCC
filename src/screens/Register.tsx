@@ -1,38 +1,42 @@
 import React, { useState } from 'react';
-import { View, StyleSheet, Image, Text } from 'react-native';
+import { View, StyleSheet, Text, Alert } from 'react-native';
 import { TextInput, Button } from 'react-native-paper';
-import { LinearGradient } from 'expo-linear-gradient';
 import { useNavigation } from '@react-navigation/native';
-import { useFonts } from 'expo-font';
-import { FontAwesome, AntDesign } from '@expo/vector-icons';
-
+import { createUserWithEmailAndPassword } from 'firebase/auth';
+import { auth } from '../routes/firebase';
 
 type RegisterScreenProps = {
   onRegister: () => void;
-  onLoginRedirect: () => void; 
+  onLoginRedirect: () => void;
 };
 
-const RegisterScreen: React.FC<RegisterScreenProps> = ({ onRegister, onLoginRedirect }) => {
+export default function RegisterScreen({ onRegister, onLoginRedirect }: RegisterScreenProps) {
+  const navigation = useNavigation();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [password2, setPassword2] = useState('');
-  const navigation = useNavigation();
 
-  const [fontsLoaded] = useFonts({
-    'Poppins-Medium': require('../../assets/fonts/Poppins-Medium.ttf'),
-    'Poppins-SemiBold': require('../../assets/fonts/Poppins-SemiBold.ttf'),
-  });
+  const handleRegister = async () => {
+    if (password !== password2) {
+      Alert.alert('Erro', 'As senhas não coincidem');
+      return;
+    }
 
-  if (!fontsLoaded){
-    return null;
-  }
+    try {
+      await createUserWithEmailAndPassword(auth, email, password);
+      Alert.alert('Sucesso', 'Conta criada com sucesso!');
+      navigation.navigate('Home' as never); // redireciona para a Home
+    } catch (error: any) {
+      Alert.alert('Erro', error.message);
+    }
+  };
 
   return (
     <View style={styles.container}>
       <View style={styles.card}>
-        <Text style={[styles.title, { fontFamily: 'Poppins-SemiBold' }]}>Seja bem vindo!</Text>
+        <Text style={[styles.title, { fontFamily: 'Poppins-SemiBold' }]}>Seja bem-vindo!</Text>
         <Text style={[styles.subtitle, { fontFamily: 'Poppins-Medium' }]}>
-        Faça seu cadastro, agora mesmo
+          Faça seu cadastro agora mesmo
         </Text>
 
         <TextInput
@@ -53,7 +57,7 @@ const RegisterScreen: React.FC<RegisterScreenProps> = ({ onRegister, onLoginRedi
         />
 
         <TextInput
-          label="Senha"
+          label="Confirmar senha"
           value={password2}
           onChangeText={setPassword2}
           secureTextEntry
@@ -61,17 +65,20 @@ const RegisterScreen: React.FC<RegisterScreenProps> = ({ onRegister, onLoginRedi
           theme={{ colors: { primary: '#0C2489', background: '#f9f9f9' } }}
         />
 
-        <Button mode="contained" onPress={onRegister} style={styles.button}>
+        <Button mode="contained" onPress={handleRegister} style={styles.button}>
           Registrar
         </Button>
 
-        <Text style={[styles.login, { fontFamily: 'Poppins-Medium' }]} onPress={() => navigation.navigate('Login')}>
+        <Text
+          style={[styles.login, { fontFamily: 'Poppins-Medium' }]}
+          onPress={() => onLoginRedirect()}
+        >
           Já tem uma conta? Fazer login
         </Text>
       </View>
     </View>
   );
-};
+}
 
 const styles = StyleSheet.create({
   container: {
@@ -93,11 +100,11 @@ const styles = StyleSheet.create({
     marginBottom: 20,
     textAlign: 'center',
   },
-  subtitle:{
+  subtitle: {
     fontSize: 14,
     color: '#121212',
     marginBottom: 20,
-    textAlign:'center',
+    textAlign: 'center',
   },
   input: {
     marginBottom: 20,
@@ -119,5 +126,3 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
 });
-
-export default RegisterScreen;

@@ -1,30 +1,42 @@
 import React, { useState } from 'react';
-import { View, StyleSheet, Text, TouchableOpacity } from 'react-native';
+import { View, StyleSheet, Text, TouchableOpacity, Alert } from 'react-native';
 import { TextInput, Button } from 'react-native-paper';
 import { useNavigation } from '@react-navigation/native';
 import { useFonts } from 'expo-font';
 import { FontAwesome, AntDesign } from '@expo/vector-icons';
+import { signInWithEmailAndPassword } from 'firebase/auth';
+import { auth } from '../routes/firebase';
+import { useGoogleAuth } from '../components/googleSignIn';
 
-type LoginScreenProps = {
-  onLogin: () => void;
-  onRegisterRedirect: () => void; 
-};
 
-const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, onRegisterRedirect }) => {
+const LoginScreen: React.FC = () => {
+  const navigation = useNavigation();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const navigation = useNavigation();
 
   const [fontsLoaded] = useFonts({
     'Poppins-Medium': require('../../assets/fonts/Poppins-Medium.ttf'),
     'Poppins-SemiBold': require('../../assets/fonts/Poppins-SemiBold.ttf'),
   });
 
-  if (!fontsLoaded) {
-    return null; // ou um loading spinner se quiser
-  }
+  const { promptAsync } = useGoogleAuth(navigation);
 
+  const handleLogin = async () => {
+    try {
+      await signInWithEmailAndPassword(auth, email, password);
+      navigation.navigate('Home' as never); // redireciona para a Home
+    } catch (error: any) {
+      Alert.alert('Erro', error.message || 'Erro ao logar');
+    }
+  };
+
+  if (!fontsLoaded) {
+    return null;
+  }
+  
   return (
+    
+
     <View style={styles.container}>
       <View style={styles.card}>
         <Text style={[styles.title, { fontFamily: 'Poppins-SemiBold' }]}>Olá de novo!</Text>
@@ -37,6 +49,8 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, onRegisterRedirect }
           value={email}
           onChangeText={setEmail}
           style={styles.input}
+          keyboardType="email-address"
+          autoCapitalize="none"
         />
 
         <TextInput
@@ -47,35 +61,30 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, onRegisterRedirect }
           style={styles.input}
         />
 
-        <Button mode="contained" onPress={onLogin} style={styles.button}>
+        <Button mode="contained" onPress={handleLogin} style={styles.button}>
           Entrar
         </Button>
 
-        <View style={styles.dividir}/>
+        <View style={styles.dividir} />
+
         <Text
           style={[styles.cadastro, { fontFamily: 'Poppins-Medium' }]}
-          onPress={() => {
-            
-            navigation.navigate('Register');
-          }}
+          onPress={() => navigation.navigate('Register' as never)}
         >
           Não tem uma conta ainda? Cadastrar-se
         </Text>
 
-        <Text style={[styles.or]}>
-          ou
-        </Text>
+        <Text style={[styles.or]}>ou</Text>
 
         <View style={styles.socialButtonsContainer}>
-        <TouchableOpacity style={styles.socialButton}>
-          <AntDesign name="google" size={24} color="black" />
-        </TouchableOpacity>
+          <TouchableOpacity style={styles.socialButton} onPress={() => promptAsync()}>
+            <AntDesign name="google" size={24} color="black" />
+          </TouchableOpacity>
 
-        <TouchableOpacity style={styles.socialButton}>
-          <FontAwesome name="apple" size={24} color="black" />
-        </TouchableOpacity>
-      </View>
-
+          <TouchableOpacity style={styles.socialButton}>
+            <FontAwesome name="apple" size={24} color="black" />
+          </TouchableOpacity>
+        </View>
       </View>
     </View>
   );
@@ -126,19 +135,19 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
   },
-  or:{
+  or: {
     marginVertical: 20,
     fontSize: 16,
-    marginTop:'10%',
+    marginTop: '10%',
     fontWeight: 'bold',
-    textAlign:'center',
+    textAlign: 'center',
   },
-  socialButtonsContainer:{
+  socialButtonsContainer: {
     flexDirection: 'row',
     gap: 16,
-    alignItems:'center',
-    justifyContent:'center',
-    paddingTop:'7%',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingTop: '7%',
   },
   socialButton: {
     backgroundColor: '#E0E0E0',
@@ -147,12 +156,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  dividir:{
-  height: 1,
-  width: '100%',
-  marginTop: '10%',
-  backgroundColor: 'rgba(0,0,0,0.20)',
-  marginBottom: 12,
+  dividir: {
+    height: 1,
+    width: '100%',
+    marginTop: '10%',
+    backgroundColor: 'rgba(0,0,0,0.20)',
+    marginBottom: 12,
   },
 });
 
