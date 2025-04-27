@@ -9,7 +9,7 @@ import { auth } from '../routes/firebase';
 import { useGoogleAuth } from '../components/googleSignIn';
 
 
-const LoginScreen: React.FC = () => {
+function LoginScreen() {
   const navigation = useNavigation();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -24,7 +24,7 @@ const LoginScreen: React.FC = () => {
   const handleLogin = async () => {
     try {
       await signInWithEmailAndPassword(auth, email, password);
-      navigation.navigate('Home' as never); // redireciona para a Home
+      navigation.navigate('Main' as never); // redireciona para as abas
     } catch (error: any) {
       Alert.alert('Erro', error.message || 'Erro ao logar');
     }
@@ -33,9 +33,9 @@ const LoginScreen: React.FC = () => {
   if (!fontsLoaded) {
     return null;
   }
-  
+
   return (
-    
+
 
     <View style={styles.container}>
       <View style={styles.card}>
@@ -50,16 +50,14 @@ const LoginScreen: React.FC = () => {
           onChangeText={setEmail}
           style={styles.input}
           keyboardType="email-address"
-          autoCapitalize="none"
-        />
+          autoCapitalize="none" />
 
         <TextInput
           label="Senha"
           value={password}
           onChangeText={setPassword}
           secureTextEntry
-          style={styles.input}
-        />
+          style={styles.input} />
 
         <Button mode="contained" onPress={handleLogin} style={styles.button}>
           Entrar
@@ -88,7 +86,7 @@ const LoginScreen: React.FC = () => {
       </View>
     </View>
   );
-};
+}
 
 const styles = StyleSheet.create({
   container: {
