@@ -8,17 +8,15 @@ import RegisterScreen from '../screens/Register';
 import HomeScreen from '../screens/HomeScreen';
 import PerfilScreen from '../screens/Perfil';
 import SettingsScreen from '../screens/Settings';
-import DashboardScreen from '../screens/Dashboard'; // Corrigi aqui também
+import DashboardScreen from '../screens/Dashboard';
 import CustomTabBar from '../components/CustomTabBar';
 
-// Tipos para o Stack Navigator
 export type RootStackParamList = {
   Login: undefined;
   Register: undefined;
   Main: undefined;
 };
 
-// Tipos para o Tab Navigator (adicionando Dashboard corretamente)
 export type RootTabParamList = {
   Home: undefined;
   Dashboard: undefined;
@@ -29,7 +27,6 @@ export type RootTabParamList = {
 const Stack = createNativeStackNavigator<RootStackParamList>();
 const Tab = createBottomTabNavigator<RootTabParamList>();
 
-// Componente para o Tab Navigator
 const MainTabs = () => {
   return (
     <Tab.Navigator
@@ -45,7 +42,6 @@ const MainTabs = () => {
   );
 };
 
-// Componente principal do AppNavigator
 export default function AppNavigator() {
   return (
     <NavigationContainer>

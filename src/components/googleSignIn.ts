@@ -1,27 +1,45 @@
 import * as WebBrowser from 'expo-web-browser';
-import * as Google from 'expo-auth-session/providers/google';
+import * as AuthSession from 'expo-auth-session';
+import { supabase } from '../routes/supabase';
 import { useEffect } from 'react';
-import { onAuthStateChanged, signInWithCredential, GoogleAuthProvider } from 'firebase/auth';
-import { auth } from '../routes/firebase';
 
 WebBrowser.maybeCompleteAuthSession();
 
+const redirectUri = AuthSession.makeRedirectUri({
+  useProxy: true,
+});
+
+const authUrl = `https://ejhzykrpxqdtkngmuxqv.supabase.co/auth/v1/callback=${encodeURIComponent(redirectUri)}`;
+
 export function useGoogleAuth(navigation: any) {
-  const [request, response, promptAsync] = Google.useAuthRequest({
-    expoClientId: 'SEU_EXPO_CLIENT_ID',
-    iosClientId: 'SEU_IOS_CLIENT_ID',
-    androidClientId: 'SEU_ANDROID_CLIENT_ID',
-    webClientId: 'SEU_WEB_CLIENT_ID',
-  });
+  const [request, response, promptAsync] = AuthSession.useAuthRequest(
+    {
+      redirectUri,
+      responseType: 'token',
+      clientId: 'ignore-this-for-supabase',
+    },
+    { authorizationEndpoint: authUrl }
+  );
 
   useEffect(() => {
-    if (response?.type === 'success') {
-      const { id_token } = response.authentication || {};
-      const credential = GoogleAuthProvider.credential(id_token);
-      signInWithCredential(auth, credential).then(() => {
-        navigation.navigate('Home');
-      });
-    }
+    const loginWithSupabase = async () => {
+      if (response?.type === 'success' && response.params?.access_token) {
+        const { access_token } = response.params;
+
+        const { data, error } = await supabase.auth.setSession({
+          access_token,
+          refresh_token: '',
+        });
+
+        if (error) {
+          console.log('Erro ao logar no Supabase:', error);
+        } else {
+          navigation.navigate('Home');
+        }
+      }
+    };
+
+    loginWithSupabase();
   }, [response]);
 
   return { promptAsync };

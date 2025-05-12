@@ -2,14 +2,12 @@ import React from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { NavigationContainer } from '@react-navigation/native';
 
-// Suas telas
 import HomeScreen from '../screens/HomeScreen';
 import DashboardScreen from '../screens/Dashboard';
 import PerfilScreen from '../screens/Perfil';
 import SettingsScreen from '../screens/Settings';
 
-// Importar a CustomTabBar
-import CustomTabBar from '../components/CustomTabBar'; // Certifique-se de ajustar o caminho corretamente
+import CustomTabBar from '../components/CustomTabBar';
 
 const Tab = createBottomTabNavigator();
 

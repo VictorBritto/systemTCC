@@ -1,37 +1,123 @@
-// App.js
 import React, { useState, useEffect } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { Db } from '../routes/firebase';  // Certifique-se de que o Firebase está configurado corretamente
-import { collection, query, orderBy, limit, getDocs } from 'firebase/firestore';
+import { supabase } from '../routes/supabase';
+import * as Notifications from 'expo-notifications';
+import * as Location from 'expo-location';
+import { Alert } from 'react-native/Libraries/Alert/Alert';
 
 export default function App() {
-  const [temperatura, setTemperatura] = useState(null); // Estado para armazenar a temperatura
+  const [temperatura, setTemperatura] = useState<number | null>(null);
+
+  const generateRandomTemperature = (): string => {
+  return (Math.random() * (30 - 10) + 10).toFixed(2);
+  };
+
+
+  const sendSimulatedData = async () => {
+    const temperaturaSimulada = generateRandomTemperature();
+
+    try {
+      const { data, error } = await supabase
+        .from('leituras_sensores')
+        .insert([{ temperatura: temperaturaSimulada, data_hora: new Date() }]);
+      
+      if (error) {
+        console.error('Erro ao inserir dados no Supabase:', error);
+      } else {
+        console.log('Leitura simulada enviada para o Supabase:', data);
+      }
+    } catch (error) {
+      console.error('Erro inesperado ao enviar dados:', error);
+    }
+  };
+
+  const fetchTemperatura = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('leituras_sensores')
+        .select('temperatura')
+        .order('data_hora', { ascending: false })
+        .limit(1)
+        .single();
+
+      if (error) {
+        console.error('Erro ao buscar dados do Supabase: ', error);
+      } else {
+        const temp = data?.temperatura;
+        setTemperatura(temp);
+
+        if (temp && temp < 19) {
+          sendNotification(temp);
+        }
+      }
+    } catch (error) {
+      console.error('Erro inesperado: ', error);
+    }
+  };
+
+  const sendNotification = (temp: number) => {
+    Notifications.scheduleNotificationAsync({
+      content: {
+        title: "Alerta de Temperatura",
+        body: `A temperatura atual é de ${temp}°C, abaixo do limite de segurança!`,
+        sound: true,
+      },
+      trigger: null,
+    });
+  };
 
   useEffect(() => {
-    const fetchTemperatura = async () => {
+    const getPushNotificationToken = async () => {
       try {
-        const q = query(
-          collection(Db, "leituras_sensores"),
-          orderBy("data_hora", "desc"),  // Ordena para pegar a mais recente
-          limit(1)  // Limita a 1 leitura mais recente
-        );
-        const querySnapshot = await getDocs(q);
-        querySnapshot.forEach((doc) => {
-          const data = doc.data();
-          setTemperatura(data.temperatura);  // Atualiza o estado com a temperatura
-        });
+        const token = await Notifications.getExpoPushTokenAsync();
+        console.log('Expo Push Token:', token);
       } catch (error) {
-        console.error("Erro ao buscar dados do Firebase: ", error);
+        console.error('Erro ao obter o token de notificação push:', error);
       }
     };
 
-    fetchTemperatura();
+    const interval = setInterval(() => {
+      fetchTemperatura();
+    }, 5000);
+
+    const dataInterval = setInterval(() => {
+      sendSimulatedData();
+    }, 5000);
+
+    getPushNotificationToken();
+
+    return () => {
+      clearInterval(interval);
+      clearInterval(dataInterval);
+    };
   }, []);
+
+  const getLocation = async () => {
+  const { status } = await Location.requestForegroundPermissionsAsync();
+  if (status !== 'granted') {
+    Alert.alert('Permissão negada', 'Permita o acesso à localização para continuar');
+    return null;
+  }
+
+  const location = await Location.getCurrentPositionAsync({});
+  return location.coords;
+};
+
+const getWeather = async (lat: number, lon: number) => {
+  const apiKey = '5a2cce3324f6fd13dbfd2661740c025b';
+  const url = `https://api.openweathermap.org/data/2.5/weather?lat=${lat}&lon=${lon}&units=metric&lang=pt_br&appid=${apiKey}`;
+
+  const response = await fetch(url);
+  const data = await response.json();
+  return {
+    temp: data.main.temp,
+    description: data.weather[0].description,
+  };
+};
 
   return (
     <View style={styles.container}>
-      {/* Painel Temperatura Atual */}
       <View style={styles.panel}>
         <Text style={styles.panelTitle}>Temperatura Atual</Text>
         <Text style={styles.temperature}>{temperatura ? `${temperatura}°` : 'Carregando...'}</Text>
@@ -42,7 +128,6 @@ export default function App() {
         </View>
       </View>
 
-      {/* Painel Inferior */}
       <View style={styles.secondPanel}>
         <View style={styles.row}>
           <View style={styles.infoBox}>
@@ -124,7 +209,7 @@ const styles = StyleSheet.create({
     height: 90,
     alignItems: 'center',
     justifyContent: 'center',
-    marginHorizontal: 10, // espaço entre eles
+    marginHorizontal: 10,
     backgroundColor: '#444444',
     borderRadius: 16,
   },

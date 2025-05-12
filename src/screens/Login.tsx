@@ -4,8 +4,7 @@ import { TextInput, Button } from 'react-native-paper';
 import { useNavigation } from '@react-navigation/native';
 import { useFonts } from 'expo-font';
 import { FontAwesome, AntDesign } from '@expo/vector-icons';
-import { signInWithEmailAndPassword } from 'firebase/auth';
-import { auth } from '../routes/firebase';
+import { supabase } from '../routes/supabase';
 import { useGoogleAuth } from '../components/googleSignIn';
 
 
@@ -19,14 +18,23 @@ function LoginScreen() {
     'Poppins-SemiBold': require('../../assets/fonts/Poppins-SemiBold.ttf'),
   });
 
-  const { promptAsync } = useGoogleAuth(navigation);
+  const { promptAsync } = useGoogleAuth(navigation); 
 
   const handleLogin = async () => {
     try {
-      await signInWithEmailAndPassword(auth, email, password);
-      navigation.navigate('Main' as never); // redireciona para as abas
-    } catch (error: any) {
-      Alert.alert('Erro', error.message || 'Erro ao logar');
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+
+      if (error) {
+        Alert.alert('Erro', error.message);
+        return;
+      }
+
+      navigation.navigate('Main' as never);
+    } catch (err: any) {
+      Alert.alert('Erro', err.message || 'Erro ao logar');
     }
   };
 
@@ -35,8 +43,6 @@ function LoginScreen() {
   }
 
   return (
-
-
     <View style={styles.container}>
       <View style={styles.card}>
         <Text style={[styles.title, { fontFamily: 'Poppins-SemiBold' }]}>Olá de novo!</Text>
@@ -50,14 +56,16 @@ function LoginScreen() {
           onChangeText={setEmail}
           style={styles.input}
           keyboardType="email-address"
-          autoCapitalize="none" />
+          autoCapitalize="none"
+        />
 
         <TextInput
           label="Senha"
           value={password}
           onChangeText={setPassword}
           secureTextEntry
-          style={styles.input} />
+          style={styles.input}
+        />
 
         <Button mode="contained" onPress={handleLogin} style={styles.button}>
           Entrar

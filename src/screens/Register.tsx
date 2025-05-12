@@ -2,34 +2,44 @@ import React, { useState } from 'react';
 import { View, StyleSheet, Text, Alert } from 'react-native';
 import { TextInput, Button } from 'react-native-paper';
 import { useNavigation } from '@react-navigation/native';
-import { createUserWithEmailAndPassword } from 'firebase/auth';
-import { auth } from '../routes/firebase';
+import { supabase } from '../routes/supabase';
 
 type RegisterScreenProps = {
   onRegister: () => void;
   onLoginRedirect: () => void;
 };
 
-export default function RegisterScreen({ onRegister, onLoginRedirect }: RegisterScreenProps) {
+export default function RegisterScreen({  }: RegisterScreenProps) {
   const navigation = useNavigation();
+  const [nome, setNome] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [password2, setPassword2] = useState('');
 
-  const handleRegister = async () => {
-    if (password !== password2) {
-      Alert.alert('Erro', 'As senhas não coincidem');
+const handleRegister = async () => {
+  if (password !== password2) {
+    Alert.alert('Erro', 'As senhas não coincidem');
+    return;
+  }
+
+  try {
+    const { error } = await supabase.auth.signUp({
+      email,
+      password,
+    });
+
+    if (error) {
+      Alert.alert('Erro', error.message);
       return;
     }
 
-    try {
-      await createUserWithEmailAndPassword(auth, email, password);
-      Alert.alert('Sucesso', 'Conta criada com sucesso!');
-      navigation.navigate('Home' as never); // redireciona para a Home
-    } catch (error: any) {
-      Alert.alert('Erro', error.message);
-    }
-  };
+    Alert.alert('Sucesso', 'Conta criada com sucesso!');
+    navigation.navigate('Login' as never);
+  } catch (err: any) {
+    Alert.alert('Erro', err.message || 'Erro ao registrar');
+  }
+};
+
 
   return (
     <View style={styles.container}>
@@ -38,6 +48,14 @@ export default function RegisterScreen({ onRegister, onLoginRedirect }: Register
         <Text style={[styles.subtitle, { fontFamily: 'Poppins-Medium' }]}>
           Faça seu cadastro agora mesmo
         </Text>
+
+        <TextInput
+          label="Nome"
+          value={nome}
+          onChangeText={setNome}
+          style={styles.input}
+          theme={{ colors: { primary: '#0C2489', background: '#f9f9f9' } }}
+        />
 
         <TextInput
           label="E-mail"
@@ -71,7 +89,7 @@ export default function RegisterScreen({ onRegister, onLoginRedirect }: Register
 
         <Text
           style={[styles.login, { fontFamily: 'Poppins-Medium' }]}
-          onPress={() => onLoginRedirect()}
+          onPress={() => navigation.navigate('Login' as never)}
         >
           Já tem uma conta? Fazer login
         </Text>
