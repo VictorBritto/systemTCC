@@ -40,7 +40,6 @@ const handleRegister = async () => {
   }
 };
 
-
   return (
     <View style={styles.container}>
       <View style={styles.card}>
@@ -54,7 +53,6 @@ const handleRegister = async () => {
           value={nome}
           onChangeText={setNome}
           style={styles.input}
-          theme={{ colors: { primary: '#0C2489', background: '#f9f9f9' } }}
         />
 
         <TextInput
@@ -62,7 +60,8 @@ const handleRegister = async () => {
           value={email}
           onChangeText={setEmail}
           style={styles.input}
-          theme={{ colors: { primary: '#0C2489', background: '#f9f9f9' } }}
+          keyboardType="email-address"
+          autoCapitalize="none"
         />
 
         <TextInput
@@ -71,7 +70,6 @@ const handleRegister = async () => {
           onChangeText={setPassword}
           secureTextEntry
           style={styles.input}
-          theme={{ colors: { primary: '#0C2489', background: '#f9f9f9' } }}
         />
 
         <TextInput
@@ -80,7 +78,6 @@ const handleRegister = async () => {
           onChangeText={setPassword2}
           secureTextEntry
           style={styles.input}
-          theme={{ colors: { primary: '#0C2489', background: '#f9f9f9' } }}
         />
 
         <Button mode="contained" onPress={handleRegister} style={styles.button}>
@@ -101,46 +98,55 @@ const handleRegister = async () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#D6D4CE',
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 16,
+    padding: 20,
+    backgroundColor: '#D6D4CE',
   },
   card: {
+    backgroundColor: '#D6D4CE',
+    borderRadius: 16,
+    padding: 20,
     width: '100%',
     maxWidth: 400,
-    padding: 25,
+    elevation: 3,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
   },
   title: {
-    fontSize: 32,
-    fontWeight: '700',
-    color: '#121212',
-    marginBottom: 20,
+    fontSize: 24,
+    marginBottom: 8,
+    color: '#1E1E1E',
     textAlign: 'center',
   },
   subtitle: {
-    fontSize: 14,
-    color: '#121212',
-    marginBottom: 20,
+    fontSize: 16,
+    marginBottom: 24,
+    color: '#1E1E1E',
     textAlign: 'center',
+    opacity: 0.9,
   },
   input: {
-    marginBottom: 20,
-    height: 50,
-    borderRadius: 8,
-    backgroundColor: '#f9f9f9',
+    marginBottom: 16,
+    backgroundColor: '#E0E0E0',
   },
   button: {
-    marginTop: 10,
+    marginTop: 24,
+    marginBottom: 16,
     backgroundColor: '#E63C3A',
-    paddingVertical: 6,
     borderRadius: 8,
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.22,
+    shadowRadius: 2.22,
   },
   login: {
-    marginTop: 20,
+    color: '#1E1E1E',
     textAlign: 'center',
-    color: '#121212',
+    marginTop: 16,
     fontSize: 14,
-    fontWeight: '600',
   },
 });

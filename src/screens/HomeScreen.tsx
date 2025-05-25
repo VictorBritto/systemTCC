@@ -1,126 +1,51 @@
-import React, { useState, useEffect } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import React, { useState } from 'react';
+import { StyleSheet, Text, View, ActivityIndicator, RefreshControl, ScrollView, Dimensions } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { supabase } from '../routes/supabase';
-import * as Notifications from 'expo-notifications';
-import * as Location from 'expo-location';
-import { Alert } from 'react-native/Libraries/Alert/Alert';
+import { useTemperature } from '../hooks/useTemperature';
+import { useWeather } from '../hooks/useWeather';
+import { config } from '../config';
 
-export default function App() {
-  const [temperatura, setTemperatura] = useState<number | null>(null);
+const windowWidth = Dimensions.get('window').width;
 
-  const generateRandomTemperature = (): string => {
-  return (Math.random() * (30 - 10) + 10).toFixed(2);
+export default function HomeScreen() {
+  const { temperatura, loading: tempLoading, error: tempError, refetch: refetchTemp } = useTemperature();
+  const { weather, loading: weatherLoading, error: weatherError, refetch: refetchWeather } = useWeather();
+  const [refreshing, setRefreshing] = useState(false);
+
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await Promise.all([refetchTemp(), refetchWeather()]);
+    setRefreshing(false);
   };
 
-
-  const sendSimulatedData = async () => {
-    const temperaturaSimulada = generateRandomTemperature();
-
-    try {
-      const { data, error } = await supabase
-        .from('leituras_sensores')
-        .insert([{ temperatura: temperaturaSimulada, data_hora: new Date() }]);
-      
-      if (error) {
-        console.error('Erro ao inserir dados no Supabase:', error);
-      } else {
-        console.log('Leitura simulada enviada para o Supabase:', data);
-      }
-    } catch (error) {
-      console.error('Erro inesperado ao enviar dados:', error);
-    }
-  };
-
-  const fetchTemperatura = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('leituras_sensores')
-        .select('temperatura')
-        .order('data_hora', { ascending: false })
-        .limit(1)
-        .single();
-
-      if (error) {
-        console.error('Erro ao buscar dados do Supabase: ', error);
-      } else {
-        const temp = data?.temperatura;
-        setTemperatura(temp);
-
-        if (temp && temp < 19) {
-          sendNotification(temp);
-        }
-      }
-    } catch (error) {
-      console.error('Erro inesperado: ', error);
-    }
-  };
-
-  const sendNotification = (temp: number) => {
-    Notifications.scheduleNotificationAsync({
-      content: {
-        title: "Alerta de Temperatura",
-        body: `A temperatura atual é de ${temp}°C, abaixo do limite de segurança!`,
-        sound: true,
-      },
-      trigger: null,
-    });
-  };
-
-  useEffect(() => {
-    const getPushNotificationToken = async () => {
-      try {
-        const token = await Notifications.getExpoPushTokenAsync();
-        console.log('Expo Push Token:', token);
-      } catch (error) {
-        console.error('Erro ao obter o token de notificação push:', error);
-      }
-    };
-
-    const interval = setInterval(() => {
-      fetchTemperatura();
-    }, 5000);
-
-    const dataInterval = setInterval(() => {
-      sendSimulatedData();
-    }, 5000);
-
-    getPushNotificationToken();
-
-    return () => {
-      clearInterval(interval);
-      clearInterval(dataInterval);
-    };
-  }, []);
-
-  const getLocation = async () => {
-  const { status } = await Location.requestForegroundPermissionsAsync();
-  if (status !== 'granted') {
-    Alert.alert('Permissão negada', 'Permita o acesso à localização para continuar');
-    return null;
+  if (tempError || weatherError) {
+    return (
+      <View style={styles.container}>
+        <MaterialCommunityIcons name="alert-outline" size={50} color="#FF6B6B" />
+        <Text style={styles.errorText}>{tempError || weatherError}</Text>
+      </View>
+    );
   }
 
-  const location = await Location.getCurrentPositionAsync({});
-  return location.coords;
-};
-
-const getWeather = async (lat: number, lon: number) => {
-  const apiKey = '5a2cce3324f6fd13dbfd2661740c025b';
-  const url = `https://api.openweathermap.org/data/2.5/weather?lat=${lat}&lon=${lon}&units=metric&lang=pt_br&appid=${apiKey}`;
-
-  const response = await fetch(url);
-  const data = await response.json();
-  return {
-    temp: data.main.temp,
-    description: data.weather[0].description,
-  };
-};
+  const loading = tempLoading || weatherLoading;
 
   return (
-    <View style={styles.container}>
+    <ScrollView
+      style={styles.scrollView}
+      contentContainerStyle={styles.container}
+      refreshControl={
+        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+      }
+    >
       <View style={styles.panel}>
         <Text style={styles.panelTitle}>Temperatura Atual</Text>
-        <Text style={styles.temperature}>{temperatura ? `${temperatura}°` : 'Carregando...'}</Text>
+        {loading ? (
+          <ActivityIndicator size="large" color="#fff" />
+        ) : (
+          <Text style={styles.temperature}>
+            {temperatura !== null ? `${temperatura}°` : 'Carregando...'}
+          </Text>
+        )}
         <View style={styles.iconContainer}>
           <MaterialCommunityIcons name="thermometer" size={22} color="white" />
           <MaterialCommunityIcons name="snowflake" size={22} color="white" />
@@ -130,104 +55,165 @@ const getWeather = async (lat: number, lon: number) => {
 
       <View style={styles.secondPanel}>
         <View style={styles.row}>
-          <View style={styles.infoBox}>
-            <MaterialCommunityIcons name="cloud" size={24} color="white" />
-            <Text style={styles.infoText}>Fumaça</Text>
-          </View>
-          <View style={styles.infoBox}>
-            <MaterialCommunityIcons name="water" size={24} color="white" />
-            <Text style={styles.infoText}>Umidade</Text>
-          </View>
-          <View style={styles.infoBox}>
-            <MaterialCommunityIcons name="thermometer" size={24} color="white" />
-            <Text style={styles.infoText}>Temperatura</Text>
-          </View>
-          <View style={styles.infoBox}>
-            <MaterialCommunityIcons name="human-greeting" size={24} color="white" />
-            <Text style={styles.infoText}>Presença</Text>
-          </View>
+          {[
+            { icon: 'cloud', label: 'Fumaça', value: '0%' },
+            { icon: 'water', label: 'Umidade', value: weather?.temp ? '60%' : '---' },
+            { icon: 'thermometer', label: 'Temperatura', value: `${temperatura ?? '---'}°C` },
+            { icon: 'human-greeting', label: 'Presença', value: 'Não' },
+          ].map(({ icon, label, value }, i) => (
+            <View key={i} style={styles.infoBox}>
+              <MaterialCommunityIcons name={icon as any} size={24} color="white" />
+              <Text style={styles.infoText}>{label}</Text>
+              <Text style={[styles.infoText, styles.infoValue]}>{value}</Text>
+            </View>
+          ))}
         </View>
+
         <View style={styles.row}>
           <View style={styles.infoRow}>
-            <Text style={styles.weatherValue}>22°C</Text>
+            <Text style={styles.weatherValue}>
+              {weather?.temp ? `${weather.temp.toFixed(1)}°C` : '22°C'}
+            </Text>
             <Text style={styles.weatherDescription}>Ar livre</Text>
+            <Text style={[styles.weatherDescription, styles.weatherSubtext]}>
+              {weather?.description || '---'}
+            </Text>
           </View>
           <View style={styles.infoRow}>
-            <Text style={styles.weatherValue}>18°C</Text>
+            <Text style={styles.weatherValue}>
+              {temperatura !== null ? `${temperatura}°C` : '---'}
+            </Text>
             <Text style={styles.weatherDescription}>Atual</Text>
+            <Text style={[styles.weatherDescription, styles.weatherSubtext]}>
+              {temperatura !== null && (
+                temperatura < config.temperature.lowerThreshold
+                  ? 'Abaixo do limite!'
+                  : temperatura > config.temperature.upperThreshold
+                    ? 'Acima do limite!'
+                    : 'Normal'
+              )}
+            </Text>
           </View>
         </View>
       </View>
-    </View>
+    </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
+  scrollView: {
+    flex: 1,
+    backgroundColor: '#D6D4CE',
+  },
   container: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
     padding: 20,
+    backgroundColor: '#D6D4CE',
   },
   panel: {
     width: '100%',
     padding: 20,
-    backgroundColor: '#121212',
-    borderRadius: 10,
+    backgroundColor: '#1E1E1E',
+    borderRadius: 16,
     alignItems: 'center',
     marginBottom: 20,
+    elevation: 3,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
   },
   secondPanel: {
     width: '100%',
-    padding: 50,
-    backgroundColor: '#121212',
-    borderRadius: 10,
+    padding: 30,
+    backgroundColor: '#1E1E1E',
+    borderRadius: 16,
+    elevation: 3,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
   },
   panelTitle: {
     color: '#fff',
-    fontSize: 15,
+    fontSize: 18,
+    fontWeight: '600',
+    marginBottom: 10,
   },
   temperature: {
     color: '#fff',
-    fontSize: 32,
+    fontSize: 48,
     fontWeight: 'bold',
   },
   iconContainer: {
     flexDirection: 'row',
     justifyContent: 'center',
-    marginTop: 10,
+    marginTop: 15,
+    gap: 15,
   },
   row: {
     flexDirection: 'row',
     justifyContent: 'center',
     flexWrap: 'wrap',
     gap: 20,
-    marginBottom: 40,
+    marginBottom: 30,
   },
   infoBox: {
-    width: 90,
-    height: 90,
+    width: windowWidth < 380 ? 80 : 90,
+    height: windowWidth < 380 ? 80 : 90,
     alignItems: 'center',
     justifyContent: 'center',
-    marginHorizontal: 10,
-    backgroundColor: '#444444',
+    backgroundColor: '#2A2A2A',
     borderRadius: 16,
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.22,
+    shadowRadius: 2.22,
   },
   infoText: {
     color: '#fff',
     marginTop: 4,
-    fontSize: 13,
+    fontSize: windowWidth < 380 ? 11 : 13,
     textAlign: 'center',
+  },
+  infoValue: {
+    marginTop: 2,
+    fontSize: windowWidth < 380 ? 12 : 14,
+    fontWeight: 'bold',
+    color: '#D9D9D9',
   },
   infoRow: {
     flex: 1,
     alignItems: 'center',
+    backgroundColor: '#2A2A2A',
+    padding: 15,
+    borderRadius: 12,
+    marginHorizontal: 5,
   },
   weatherValue: {
     color: '#fff',
-    fontSize: 24,
+    fontSize: windowWidth < 380 ? 20 : 24,
+    fontWeight: 'bold',
   },
   weatherDescription: {
-    color: '#bbb',
+    color: '#E0E0E0',
+    marginTop: 4,
+  },
+  weatherSubtext: {
+    fontSize: 12,
+    marginTop: 4,
+    color: '#D9D9D9',
+  },
+  errorText: {
+    color: '#FF6B6B',
+    fontSize: 16,
+    marginTop: 10,
+    textAlign: 'center',
+    backgroundColor: '#2A2A2A',
+    padding: 15,
+    borderRadius: 10,
   },
 });

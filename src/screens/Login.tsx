@@ -86,10 +86,6 @@ function LoginScreen() {
           <TouchableOpacity style={styles.socialButton} onPress={() => promptAsync()}>
             <AntDesign name="google" size={24} color="black" />
           </TouchableOpacity>
-
-          <TouchableOpacity style={styles.socialButton}>
-            <FontAwesome name="apple" size={24} color="black" />
-          </TouchableOpacity>
         </View>
       </View>
     </View>
@@ -99,75 +95,86 @@ function LoginScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#D6D4CE',
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 16,
+    padding: 20,
+    backgroundColor: '#D6D4CE',
   },
   card: {
+    backgroundColor: '#D6D4CE',
+    borderRadius: 16,
+    padding: 20,
     width: '100%',
     maxWidth: 400,
-    padding: 25,
+    elevation: 3,
+    shadowColor: '#1E1E1E',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
   },
   title: {
-    fontSize: 32,
-    fontWeight: '700',
-    color: '#121212',
-    marginBottom: 10,
+    fontSize: 24,
+    marginBottom: 8,
+    color: '#1E1E1E',
     textAlign: 'center',
   },
   subtitle: {
-    fontSize: 14,
-    color: '#121212',
-    marginBottom: 25,
+    fontSize: 16,
+    marginBottom: 24,
+    color: '#1E1E1E',
     textAlign: 'center',
+    opacity: 0.9,
   },
   input: {
-    marginBottom: 20,
-    height: 50,
-    borderRadius: 8,
-    backgroundColor: '#f9f9f9',
+    marginBottom: 16,
+    backgroundColor: '#E0E0E0',
   },
   button: {
-    marginTop: 10,
+    marginTop: 24,
+    marginBottom: 16,
     backgroundColor: '#E63C3A',
-    paddingVertical: 6,
     borderRadius: 8,
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.22,
+    shadowRadius: 2.22,
   },
   cadastro: {
-    marginTop: 20,
+    color: '#1E1E1E',
     textAlign: 'center',
-    color: '#121212',
+    marginTop: 16,
     fontSize: 14,
-    fontWeight: '600',
-  },
-  or: {
-    marginVertical: 20,
-    fontSize: 16,
-    marginTop: '10%',
-    fontWeight: 'bold',
-    textAlign: 'center',
-  },
-  socialButtonsContainer: {
-    flexDirection: 'row',
-    gap: 16,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingTop: '7%',
-  },
-  socialButton: {
-    backgroundColor: '#E0E0E0',
-    padding: 14,
-    borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
   },
   dividir: {
     height: 1,
-    width: '100%',
-    marginTop: '10%',
-    backgroundColor: 'rgba(0,0,0,0.20)',
-    marginBottom: 12,
+    backgroundColor: '#2A2A2A',
+    marginVertical: 20,
+  },
+  or: {
+    color: '#1E1E1E',
+    textAlign: 'center',
+    marginVertical: 16,
+    fontSize: 14,
+  },
+  socialButtonsContainer: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: 20,
+    marginTop: 16,
+  },
+  socialButton: {
+    backgroundColor: '#E0E0E0',
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    justifyContent: 'center',
+    alignItems: 'center',
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.22,
+    shadowRadius: 2.22,
   },
 });
 
