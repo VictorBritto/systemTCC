@@ -2,7 +2,6 @@ import React, { useEffect, useState } from 'react';
 import {
   View,
   Text,
-  Image,
   StyleSheet,
   TouchableOpacity,
   Alert,
@@ -12,7 +11,6 @@ import {
   Dimensions,
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import * as ImagePicker from 'expo-image-picker';
 import { supabase } from '../routes/supabase';
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
@@ -22,7 +20,6 @@ interface UserProfile {
   name: string;
   phone: string;
   location: string;
-  avatar_url: string;
   role: string;
 }
 
@@ -32,10 +29,9 @@ const ProfileScreen = () => {
   const [editing, setEditing] = useState(false);
   const [profile, setProfile] = useState<UserProfile>({
     email: '',
-    name: 'Victor Gabriel',
+    name: '',
     phone: '+5519928343697',
     location: 'Interior',
-    avatar_url: 'https://via.placeholder.com/100',
     role: 'Administrador',
   });
 
@@ -54,88 +50,15 @@ const ProfileScreen = () => {
         setProfile(prev => ({
           ...prev,
           email: user.email || '',
-          name: user.user_metadata?.name || prev.name,
+          name: user.user_metadata?.name || 'Usuário',
           phone: user.user_metadata?.phone || prev.phone,
           location: user.user_metadata?.location || prev.location,
-          avatar_url: user.user_metadata?.avatar_url || prev.avatar_url,
           role: user.user_metadata?.role || prev.role,
         }));
       }
     } catch (error) {
       console.error('Erro ao buscar usuário:', error);
       Alert.alert('Erro', 'Não foi possível carregar os dados do usuário.');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const pickImage = async () => {
-    try {
-      const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
-      if (!permissionResult.granted) {
-        Alert.alert('Permissão negada', 'Você precisa permitir o acesso às fotos.');
-        return;
-      }
-
-      const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Images,
-        allowsEditing: true,
-        aspect: [1, 1],
-        quality: 0.5,
-      });
-
-      if (!result.canceled) {
-        const imageUri = result.assets[0].uri;
-        await uploadImageToSupabase(imageUri);
-      }
-    } catch (error) {
-      console.error('Erro ao selecionar imagem:', error);
-      Alert.alert('Erro', 'Não foi possível selecionar a imagem.');
-    }
-  };
-
-  const uploadImageToSupabase = async (uri: string) => {
-    try {
-      setLoading(true);
-      
-      // Generate a unique file name
-      const fileExt = uri.split('.').pop();
-      const fileName = `${user.id}-${Date.now()}.${fileExt}`;
-      const filePath = `avatars/${fileName}`;
-
-      // Fetch the image and convert to blob
-      const response = await fetch(uri);
-      const blob = await response.blob();
-
-      // Upload to Supabase Storage
-      const { error: uploadError } = await supabase.storage
-        .from('avatars')
-        .upload(filePath, blob, {
-          contentType: `image/${fileExt}`,
-          upsert: true
-        });
-
-      if (uploadError) throw uploadError;
-
-      // Get the public URL
-      const { data: { publicUrl } } = supabase.storage
-        .from('avatars')
-        .getPublicUrl(filePath);
-
-      if (!publicUrl) throw new Error('Failed to get public URL');
-
-      // Update user profile with new avatar URL
-      const { error: updateError } = await supabase.auth.updateUser({
-        data: { avatar_url: publicUrl }
-      });
-
-      if (updateError) throw updateError;
-
-      setProfile(prev => ({ ...prev, avatar_url: publicUrl }));
-      Alert.alert('Sucesso', 'Foto atualizada com sucesso!');
-    } catch (error: any) {
-      console.error('Erro ao fazer upload da imagem:', error);
-      Alert.alert('Erro', 'Não foi possível atualizar a foto: ' + error.message);
     } finally {
       setLoading(false);
     }
@@ -184,13 +107,6 @@ const ProfileScreen = () => {
             </TouchableOpacity>
           </View>
 
-          <View style={styles.avatarContainer}>
-            <Image source={{ uri: profile.avatar_url }} style={styles.avatar} />
-            <TouchableOpacity style={styles.cameraButton} onPress={pickImage}>
-              <MaterialCommunityIcons name="camera" size={20} color="#1E1E1E" />
-            </TouchableOpacity>
-          </View>
-
           <View style={styles.infoContainer}>
             <View style={styles.infoHeader}>
               <Text style={styles.name}>{profile.name}</Text>
@@ -198,6 +114,21 @@ const ProfileScreen = () => {
 
             <View style={styles.infoSection}>
               <Text style={styles.sectionTitle}>Informações Pessoais</Text>
+              
+              <View style={styles.infoRow}>
+                <MaterialCommunityIcons name="account" size={20} color="#666" />
+                <Text style={styles.infoLabel}>Nome</Text>
+                {editing ? (
+                  <TextInput
+                    style={styles.input}
+                    value={profile.name}
+                    onChangeText={(text) => setProfile(prev => ({ ...prev, name: text }))}
+                    placeholder="Seu nome"
+                  />
+                ) : (
+                  <Text style={styles.infoValue}>{profile.name}</Text>
+                )}
+              </View>
               
               <View style={styles.infoRow}>
                 <MaterialCommunityIcons name="email" size={20} color="#666" />
@@ -300,32 +231,6 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     fontSize: screenWidth < 360 ? 14 : 16,
   },
-  avatarContainer: {
-    width: '100%',
-    alignItems: 'center',
-    marginBottom: screenHeight * 0.04,
-  },
-  avatar: {
-    width: screenWidth * 0.3,
-    height: screenWidth * 0.3,
-    borderRadius: screenWidth * 0.15,
-    backgroundColor: '#1E1E1E',
-    borderWidth: 3,
-    borderColor: '#1E1E1E',
-  },
-  cameraButton: {
-    position: 'absolute',
-    bottom: 0,
-    right: '35%',
-    backgroundColor: '#D9D9D9',
-    padding: 12,
-    borderRadius: 20,
-    elevation: 3,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-  },
   infoContainer: {
     width: '100%',
     backgroundColor: '#1E1E1E',
@@ -346,11 +251,6 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: '#FFFFFF',
     marginBottom: 4,
-  },
-  role: {
-    fontSize: screenWidth < 360 ? 14 : 16,
-    color: '#4ECDC4',
-    opacity: 0.9,
   },
   infoSection: {
     marginBottom: screenHeight * 0.03,

@@ -1,9 +1,10 @@
-import React, { useState } from 'react';
-import { StyleSheet, Text, View, ActivityIndicator, RefreshControl, ScrollView, Dimensions } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { StyleSheet, Text, View, ActivityIndicator, RefreshControl, ScrollView, Dimensions, TouchableOpacity } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTemperature } from '../hooks/useTemperature';
 import { useWeather } from '../hooks/useWeather';
 import { config } from '../config';
+import { supabase } from '../routes/supabase';
 
 const windowWidth = Dimensions.get('window').width;
 
@@ -11,10 +12,32 @@ export default function HomeScreen() {
   const { temperatura, loading: tempLoading, error: tempError, refetch: refetchTemp } = useTemperature();
   const { weather, loading: weatherLoading, error: weatherError, refetch: refetchWeather } = useWeather();
   const [refreshing, setRefreshing] = useState(false);
+  const [sensorData, setSensorData] = useState<any>(null);
+
+  const fetchSensorData = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('leituras_sensores')
+        .select('id, temperatura, data_hora, umidade, fumaca, presenca, local_sensor')
+        .order('data_hora', { ascending: false })
+        .limit(1)
+        .single();
+
+      if (!error && data) {
+        setSensorData(data);
+      }
+    } catch (error) {
+      console.error('Erro ao buscar dados do sensor:', error);
+    }
+  };
+
+  useEffect(() => {
+    fetchSensorData();
+  }, []);
 
   const onRefresh = async () => {
     setRefreshing(true);
-    await Promise.all([refetchTemp(), refetchWeather()]);
+    await Promise.all([refetchTemp(), refetchWeather(), fetchSensorData()]);
     setRefreshing(false);
   };
 
@@ -38,7 +61,15 @@ export default function HomeScreen() {
       }
     >
       <View style={styles.panel}>
-        <Text style={styles.panelTitle}>Temperatura Atual</Text>
+        <View style={styles.panelHeader}>
+          <Text style={styles.panelTitle}>Temperatura Atual</Text>
+          <TouchableOpacity 
+            onPress={refetchTemp}
+            style={styles.refreshButton}
+          >
+            <MaterialCommunityIcons name="refresh" size={20} color="white" />
+          </TouchableOpacity>
+        </View>
         {loading ? (
           <ActivityIndicator size="large" color="#fff" />
         ) : (
@@ -56,10 +87,10 @@ export default function HomeScreen() {
       <View style={styles.secondPanel}>
         <View style={styles.row}>
           {[
-            { icon: 'cloud', label: 'Fumaça', value: '0%' },
-            { icon: 'water', label: 'Umidade', value: weather?.temp ? '60%' : '---' },
+            { icon: 'cloud', label: 'Fumaça', value: sensorData?.fumaca ? 'Sim' : 'Não' },
+            { icon: 'water', label: 'Umidade', value: sensorData?.umidade ? `${sensorData.umidade}%` : '---' },
             { icon: 'thermometer', label: 'Temperatura', value: `${temperatura ?? '---'}°C` },
-            { icon: 'human-greeting', label: 'Presença', value: 'Não' },
+            { icon: 'human-greeting', label: 'Presença', value: sensorData?.presenca ? 'Sim' : 'Não' },
           ].map(({ icon, label, value }, i) => (
             <View key={i} style={styles.infoBox}>
               <MaterialCommunityIcons name={icon as any} size={24} color="white" />
@@ -125,6 +156,16 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.25,
     shadowRadius: 3.84,
   },
+  panelHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    width: '100%',
+    marginBottom: 10,
+  },
+  refreshButton: {
+    padding: 5,
+  },
   secondPanel: {
     width: '100%',
     padding: 30,
@@ -140,7 +181,6 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 18,
     fontWeight: '600',
-    marginBottom: 10,
   },
   temperature: {
     color: '#fff',

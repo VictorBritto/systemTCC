@@ -87,7 +87,7 @@ export default function DashboardScreen() {
     try {
       let { data, error } = await supabase
         .from('leituras_sensores')
-        .select('temperatura, data_hora')
+        .select('id, temperatura, data_hora, umidade, fumaca, presenca, local_sensor')
         .order('data_hora', { ascending: true })
         .limit(7);
 

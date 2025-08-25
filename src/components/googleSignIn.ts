@@ -5,42 +5,41 @@ import { useEffect } from 'react';
 
 WebBrowser.maybeCompleteAuthSession();
 
-const redirectUri = AuthSession.makeRedirectUri({
-  useProxy: true,
-});
-
-const authUrl = `https://ejhzykrpxqdtkngmuxqv.supabase.co/auth/v1/callback=${encodeURIComponent(redirectUri)}`;
-
 export function useGoogleAuth(navigation: any) {
   const [request, response, promptAsync] = AuthSession.useAuthRequest(
     {
-      redirectUri,
-      responseType: 'token',
-      clientId: 'ignore-this-for-supabase',
+      clientId: '127f9377-fec7-4380-99a2-475089957b84.apps.googleusercontent.com',
+      scopes: ['openid', 'profile', 'email'],
+      redirectUri: AuthSession.makeRedirectUri(),
+      responseType: 'id_token',
     },
-    { authorizationEndpoint: authUrl }
+    {
+      authorizationEndpoint: 'https://accounts.google.com/oauth/authorize',
+    }
   );
 
   useEffect(() => {
-    const loginWithSupabase = async () => {
-      if (response?.type === 'success' && response.params?.access_token) {
-        const { access_token } = response.params;
+    if (response?.type === 'success' && response.params?.id_token) {
+      const handleGoogleSignIn = async () => {
+        try {
+          const { data, error } = await supabase.auth.signInWithIdToken({
+            provider: 'google',
+            token: response.params.id_token,
+          });
 
-        const { data, error } = await supabase.auth.setSession({
-          access_token,
-          refresh_token: '',
-        });
-
-        if (error) {
-          console.log('Erro ao logar no Supabase:', error);
-        } else {
-          navigation.navigate('Home');
+          if (error) {
+            console.error('Erro ao fazer login com Google:', error);
+          } else {
+            navigation.navigate('Main' as never);
+          }
+        } catch (error) {
+          console.error('Erro na autenticação:', error);
         }
-      }
-    };
+      };
 
-    loginWithSupabase();
-  }, [response]);
+      handleGoogleSignIn();
+    }
+  }, [response, navigation]);
 
   return { promptAsync };
 }

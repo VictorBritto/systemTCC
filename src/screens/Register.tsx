@@ -22,10 +22,23 @@ const handleRegister = async () => {
     return;
   }
 
+  if (!nome.trim()) {
+    Alert.alert('Erro', 'Por favor, insira seu nome');
+    return;
+  }
+
   try {
     const { error } = await supabase.auth.signUp({
       email,
       password,
+      options: {
+        data: {
+          name: nome.trim(),
+          phone: '',
+          location: '',
+          role: 'Usuário'
+        }
+      }
     });
 
     if (error) {

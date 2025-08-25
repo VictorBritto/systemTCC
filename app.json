@@ -2,12 +2,10 @@
   "expo": {
     "name": "my-expo-app",
     "slug": "my-expo-app",
-    "version": "1.0.0",
+    "version": "1.0.2",
+    "scheme": "myexpoapp",
     "web": {
       "favicon": "./assets/favicon.png"
-    },
-    "experiments": {
-      "tsconfigPaths": true
     },
     "plugins": [
       "expo-router",
@@ -16,12 +14,11 @@
         "expo-build-properties",
         {
           "android": {
-            "useFrameworks": "static"
+            "minSdkVersion": 34,
+            "targetSdkVersion": 34
           }
         }
-      ],
-      "@react-native-firebase/app",
-      "@react-native-firebase/auth"
+      ]
     ],
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -39,6 +36,16 @@
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
+      },
+      "package": "com.victxr153.myexpoapp",
+      "versionCode": 2
+    },
+    "extra": {
+      "SUPABASE_URL": "https://ejhzykrpxqdtkngmuxqv.supabase.co",
+      "SUPABASE_ANON_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVqaHp5a3JweHFkdGtuZ211eHF2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDY0ODkwNTYsImV4cCI6MjA2MjA2NTA1Nn0.63yUncBc4v2RncYxiQwqGwqK1a8H1x9YX_omcNYlHzA",
+      "OPENWEATHER_API_KEY": "5a2cce3324f6fd13dbfd2661740c025b",
+      "eas": {
+        "projectId": "127f9377-fec7-4380-99a2-475089957b84"
       }
     }
   }
