@@ -73,8 +73,8 @@ export default function SettingsScreen() {
           <Switch
             onValueChange={toggleNotifications}
             value={isNotificationsEnabled}
-            trackColor={{ false: '#767577', true: '#E63C3A' }}
-            thumbColor={isNotificationsEnabled ? '#1E1E1E' : '#f4f3f4'}
+            trackColor={{ false: '#767577', true: '#7DD3FC' }}
+            thumbColor={isNotificationsEnabled ? '#93C5FD' : '#93C5FD'}
           />
         </View>
         
@@ -128,18 +128,18 @@ export default function SettingsScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#D6D4CE',
+    backgroundColor: '#F0F4F8',
     padding: 20,
   },
   title: {
     fontSize: 28,
     fontWeight: 'bold',
-    color: '#1E1E1E',
+    color: '#334155',
     marginBottom: 20,
     marginTop: 40,
   },
   card: {
-    backgroundColor: '#1E1E1E',
+    backgroundColor: '#FFFFFF',
     borderRadius: 16,
     padding: 20,
     marginBottom: 20,
@@ -157,17 +157,17 @@ const styles = StyleSheet.create({
   },
   optionText: {
     fontSize: 16,
-    color: '#FFFFFF',
+    color: '#334155',
     fontWeight: '500',
   },
   description: {
     fontSize: 14,
-    color: '#E0E0E0',
+    color: '#334155',
     marginTop: 8,
     opacity: 0.9,
   },
   logoutButton: {
-    backgroundColor: '#E63C3A',
+    backgroundColor: '#7DD3FC',
     padding: 16,
     borderRadius: 16,
     marginTop: 20,
@@ -191,10 +191,10 @@ const styles = StyleSheet.create({
   },
   input: {
     marginBottom: 16,
-    backgroundColor: '#2A2A2A',
+    backgroundColor: '#FFFFFF',
   },
   changePasswordButton: {
-    backgroundColor: '#E63C3A',
+    backgroundColor: '#7DD3FC',
     marginTop: 8,
   },
 });

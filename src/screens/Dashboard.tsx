@@ -1,5 +1,14 @@
-import React, { useEffect, useState } from 'react';
-import { View, Text, useWindowDimensions, StyleSheet, ScrollView, DimensionValue } from 'react-native';
+import React, { useEffect, useState, useCallback, useMemo } from 'react';
+import { 
+  View, 
+  Text, 
+  useWindowDimensions, 
+  StyleSheet, 
+  ScrollView, 
+  DimensionValue,
+  RefreshControl,
+  ActivityIndicator 
+} from 'react-native';
 import { BarChart, LineChart } from 'react-native-chart-kit';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { supabase } from '../routes/supabase';
@@ -27,209 +36,339 @@ interface Alert {
   severity: 'warning' | 'info' | 'success';
 }
 
+interface SensorReading {
+  temperatura: number;
+  umidade: number;
+  fumaca?: number;
+  data_hora: string;
+}
+
 export default function DashboardScreen() {
   const { width: screenWidth, height: screenHeight } = useWindowDimensions();
-  const isSmallScreen = screenWidth < 360;
-  const isMediumScreen = screenWidth < 768;
-
-  const getCardDimensions = () => {
-    if (isSmallScreen) return { width: '100%' as DimensionValue, height: 130 };
-    if (isMediumScreen) return { width: '47%' as DimensionValue, height: 140 };
-    return { width: '23%' as DimensionValue, height: 150 };
-  };
-
-  const chartWidth = screenWidth / 2.2;
-  const chartHeight = Math.min(screenHeight * 0.23, 200);
-
-  const [temperatureData, setTemperatureData] = useState<ChartData>();
-  const [humidityData, setHumidityData] = useState<ChartData>();
-  const [FumacaData, setFumacaData] = useState<ChartData>();
-  const [MaxData, setMaxData] = useState<ChartData>();
+  
+  // Estados
+  const [temperatureData, setTemperatureData] = useState<ChartData | null>(null);
+  const [humidityData, setHumidityData] = useState<ChartData | null>(null);
+  const [fumacaData, setFumacaData] = useState<ChartData | null>(null);
+  const [maxMinData, setMaxMinData] = useState<ChartData | null>(null);
   const [loading, setLoading] = useState(true);
-  const [humidity, setHumidity] = useState<number>(65);
-  const [selectedPeriod, setSelectedPeriod] = useState<'Dia' | 'Semana' | 'Mes'>('Semana');
+  const [refreshing, setRefreshing] = useState(false);
+  const [currentStats, setCurrentStats] = useState({
+    avgTemp: 23,
+    minTemp: 19,
+    maxTemp: 28,
+    humidity: 65,
+    alerts: 3
+  });
 
-  const stats: StatCard[] = [
-    { title: 'Média', value: '23°C', icon: 'thermometer', color: '#FF6B6B' },
-    { title: 'Mínima', value: '19°C', icon: 'thermometer-low', color: '#4ECDC4' },
-    { title: 'Máxima', value: '28°C', icon: 'thermometer-high', color: '#FFB236' },
-    { title: 'Alertas', value: '3', icon: 'alert-circle', color: '#FF6B6B' },
-  ];
+  // Dimensões responsivas
+  const dimensions = useMemo(() => {
+    const isSmallScreen = screenWidth < 360;
+    const isMediumScreen = screenWidth < 768;
+    
+    return {
+      cardWidth: (isSmallScreen ? '100%' : isMediumScreen ? '47%' : '23%') as DimensionValue,
+      cardHeight: isSmallScreen ? 130 : isMediumScreen ? 140 : 150,
+      chartWidth: screenWidth / 2.2,
+      chartHeight: Math.min(screenHeight * 0.23, 200)
+    };
+  }, [screenWidth, screenHeight]);
 
-  const alerts: Alert[] = [
-    { id: 1, title: 'Temperatura abaixo do limite', time: 'Hoje, 14:30', severity: 'warning' },
-    { id: 2, title: 'Umidade elevada detectada', time: 'Hoje, 12:15', severity: 'info' },
-    { id: 3, title: 'Sistema em funcionamento normal', time: 'Hoje, 08:00', severity: 'success' },
-  ];
+  // Configurações dos gráficos
+  const chartConfigs = useMemo(() => {
+    const baseConfig = {
+      backgroundColor: '#FFFFFF',
+      backgroundGradientFrom: '#FFFFFF',
+      backgroundGradientTo: '#FFFFFF',
+      decimalPlaces: 1,
+      color: (opacity = 1) => `rgba(51, 65, 85, ${opacity})`,
+      labelColor: () => '#64748B',
+      propsForBackgroundLines: { 
+        stroke: '#E2E8F0', 
+        strokeDasharray: '5, 5',
+        strokeWidth: 1 
+      },
+      propsForLabels: { 
+        fontSize: 11,
+        fontWeight: '500' 
+      },
+    };
 
-  const fetchData = async () => {
-    setLoading(true);
+    return {
+      temperature: {
+        ...baseConfig,
+        color: (opacity = 1) => `rgba(255, 107, 107, ${opacity})`,
+        propsForDots: { 
+          r: '4', 
+          strokeWidth: '2', 
+          stroke: '#FF6B6B', 
+          fill: '#FF6B6B' 
+        },
+      },
+      humidity: {
+        ...baseConfig,
+        color: (opacity = 1) => `rgba(0, 188, 212, ${opacity})`,
+        propsForDots: { 
+          r: '4', 
+          strokeWidth: '2', 
+          stroke: '#00BCD4', 
+          fill: '#00BCD4' 
+        },
+      },
+      fumaca: {
+        ...baseConfig,
+        color: (opacity = 1) => `rgba(253, 202, 64, ${opacity})`,
+        barPercentage: 0.5,
+        fillShadowGradient: '#FDC640',
+        fillShadowGradientOpacity: 0.8,
+        barRadius: 8,
+      },
+      maxMin: {
+        ...baseConfig,
+        color: (opacity = 1) => `rgba(223, 41, 53, ${opacity})`,
+        barPercentage: 0.5,
+        fillShadowGradient: '#DF2935',
+        fillShadowGradientOpacity: 0.8,
+        barRadius: 8,
+      }
+    };
+  }, []);
+
+  // Processar dados
+  const processChartData = useCallback((readings: SensorReading[]) => {
+    if (!readings || readings.length === 0) return null;
+
+    const labels = readings.map((reading) => {
+      const date = new Date(reading.data_hora);
+      return date.toLocaleDateString('pt-BR', { weekday: 'short' });
+    });
+
+    const temperatures = readings.map(r => r.temperatura);
+    const humidities = readings.map(r => r.umidade);
+    const fumacas = readings.map(r => r.fumaca || Math.random() * 8); // Simulado se não existir
+
+    // Calcular min/max
+    const maxTemps = readings.map(r => r.temperatura + Math.random() * 5);
+    const minTemps = readings.map(r => r.temperatura - Math.random() * 5);
+
+    // Calcular estatísticas
+    const avgTemp = Math.round(temperatures.reduce((a, b) => a + b, 0) / temperatures.length);
+    const minTemp = Math.round(Math.min(...temperatures));
+    const maxTemp = Math.round(Math.max(...temperatures));
+    const currentHumidity = Math.round(humidities[humidities.length - 1]);
+
+    setCurrentStats({
+      avgTemp,
+      minTemp,
+      maxTemp,
+      humidity: currentHumidity,
+      alerts: 3 // Pode ser calculado com base em condições
+    });
+
+    return {
+      temperature: {
+        labels,
+        datasets: [{
+          data: temperatures,
+          color: (opacity = 1) => `rgba(255, 107, 107, ${opacity})`,
+          strokeWidth: 2,
+        }],
+      },
+      humidity: {
+        labels,
+        datasets: [{
+          data: humidities,
+          color: (opacity = 1) => `rgba(0, 188, 212, ${opacity})`,
+          strokeWidth: 2,
+        }],
+      },
+      fumaca: {
+        labels,
+        datasets: [{
+          data: fumacas,
+          color: (opacity = 1) => `rgba(253, 202, 64, ${opacity})`,
+        }],
+      },
+      maxMin: {
+        labels,
+        datasets: [{
+          data: maxTemps.map((max, i) => max - minTemps[i]),
+          color: (opacity = 1) => `rgba(223, 41, 53, ${opacity})`,
+        }],
+      }
+    };
+  }, []);
+
+  // Buscar dados
+  const fetchData = useCallback(async () => {
     try {
       const { data, error } = await supabase
         .from('leituras_sensores')
-        .select('temperatura, umidade, data_hora')
+        .select('temperatura, umidade, fumaca, data_hora')
         .order('data_hora', { ascending: true })
         .limit(7);
 
       if (error) throw error;
 
-      const labels =
-        data?.map((reading) => {
-          const date = new Date(reading.data_hora);
-          return date.toLocaleDateString('pt-BR', { weekday: 'short' });
-        }) || [];
-
-      const tempChart: ChartData = {
-        labels,
-        datasets: [
-          {
-            data: data?.map((r) => r.temperatura) || [],
-            color: (opacity = 1) => `rgba(255, 107, 107, ${opacity})`,
-            strokeWidth: 2,
-          },
-        ],
-      };
-
-      const humChart: ChartData = {
-        labels,
-        datasets: [
-          {
-            data: data?.map((r) => r.umidade) || [],
-            color: (opacity = 1) => `rgba(0, 188, 212, ${opacity})`,
-            strokeWidth: 2,
-          },
-        ],
-      };
-
-      const fumacaChart: ChartData = {
-        labels,
-        datasets: [
-          {
-            data: data?.map((r) => r.umidade) || [],
-            color: (opacity = 1) => `rgba(0, 188, 212, ${opacity})`,
-            strokeWidth: 2,
-          },
-        ],
-      }
-
-      const maxChart: ChartData = {
-        labels,
-        datasets: [
-          {
-            data: data?.map((r) => r.umidade) || [],
-            color: (opacity = 1) => `rgba(223, 41, 53, ${opacity})`,
-            strokeWidth: 2,
-          },
-        ],
-      };
-
-      setTemperatureData(tempChart);
-      setHumidityData(humChart);
-      setFumacaData(fumacaChart);
-      setMaxData(maxChart);
-
-      if (data && data.length > 0) {
-        setHumidity(data[data.length - 1].umidade || 65);
+      const processedData = processChartData(data);
+      
+      if (processedData) {
+        setTemperatureData(processedData.temperature);
+        setHumidityData(processedData.humidity);
+        setFumacaData(processedData.fumaca);
+        setMaxMinData(processedData.maxMin);
       }
     } catch (err) {
       console.error('Erro ao buscar dados:', err);
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
-  };
+  }, [processChartData]);
+
+  // Pull to refresh
+  const onRefresh = useCallback(() => {
+    setRefreshing(true);
+    fetchData();
+  }, [fetchData]);
 
   useEffect(() => {
     fetchData();
-  }, [selectedPeriod]);
+  }, [fetchData]);
 
-  const chartConfig = {
-    backgroundColor: '#1E1E1E',
-    backgroundGradientFrom: '#1E1E1E',
-    backgroundGradientTo: '#1E1E1E',
-    decimalPlaces: 1,
-    color: (opacity = 1) => `rgba(255,255,255,${opacity})`,
-    labelColor: () => '#999',
-    propsForBackgroundLines: { 
-      stroke: '#333', 
-      strokeDasharray: '5, 5',
-      strokeWidth: 1 
+  // Stats cards
+  const stats: StatCard[] = useMemo(() => [
+    { 
+      title: 'Média', 
+      value: `${currentStats.avgTemp}°C`, 
+      icon: 'thermometer', 
+      color: '#FF6B6B' 
     },
-    propsForLabels: { 
-      fontSize: 11,
-      fontWeight: '500' 
+    { 
+      title: 'Mínima', 
+      value: `${currentStats.minTemp}°C`, 
+      icon: 'thermometer-low', 
+      color: '#4ECDC4' 
     },
-    barRadius: 8,
-    barPercentage: 0.4,
-    categoryPercentage: 0.5,
-  };
+    { 
+      title: 'Máxima', 
+      value: `${currentStats.maxTemp}°C`, 
+      icon: 'thermometer-high', 
+      color: '#FFB236' 
+    },
+    { 
+      title: 'Alertas', 
+      value: `${currentStats.alerts}`, 
+      icon: 'alert-circle', 
+      color: '#FF6B6B' 
+    },
+  ], [currentStats]);
 
-  const tempChartConfig = {
-    ...chartConfig,
-    color: (opacity = 1) => `rgba(255, 107, 107, ${opacity})`,
-    propsForDots: { r: '3', strokeWidth: '2', stroke: '#FF6B6B', fill: '#FF6B6B' },
-  };
-
-  const humChartConfig = {
-    ...chartConfig,
-    color: (opacity = 1) => `rgba(0, 188, 212, ${opacity})`,
-    propsForDots: { r: '0', strokeWidth: '0' },
-  };
-
-  const FumacaChartConfig = {
-    ...chartConfig,
-    color: (opacity = 1) => `rgba(253, 202, 64, ${opacity})`,
-    barPercentage: 0.4,
-    categoryPercentage: 0.5,
-    fillShadowGradient: '#FDC640',
-    fillShadowGradientOpacity: 0.8,
-    strokeWidth: 2,
-    barRadius: 8,
-    propsForBackgroundLines: { 
-      stroke: '#333', 
-      strokeDasharray: '5, 5',
-      strokeWidth: 1 
+  const alerts: Alert[] = [
+    { 
+      id: 1, 
+      title: 'Temperatura abaixo do limite', 
+      time: 'Hoje, 14:30', 
+      severity: 'warning' 
     },
-    propsForLabels: { 
-      fontSize: 11, 
-      fontWeight: '600' 
+    { 
+      id: 2, 
+      title: 'Umidade elevada detectada', 
+      time: 'Hoje, 12:15', 
+      severity: 'info' 
     },
-  };
-
-  const MaxChartConfig = {
-    ...chartConfig,
-    color: (opacity = 1) => `rgba(223, 41, 53, ${opacity})`,
-    barPercentage: 0.4,
-    categoryPercentage: 0.5,
-    fillShadowGradient: '#DF2935',
-    fillShadowGradientOpacity: 0.8,
-    strokeWidth: 2,
-    barRadius: 8,
-    propsForBackgroundLines: { 
-      stroke: '#333', 
-      strokeDasharray: '5, 5',
-      strokeWidth: 1 
+    { 
+      id: 3, 
+      title: 'Sistema em funcionamento normal', 
+      time: 'Hoje, 08:00', 
+      severity: 'success' 
     },
-    propsForLabels: { 
-      fontSize: 11, 
-      fontWeight: '600' 
-    },
-  };
+  ];
 
   const getAlertColors = (severity: string) => {
     switch (severity) {
       case 'warning':
-        return { bg: 'rgba(255,167,38,0.15)', border: '#FFA726' };
+        return { bg: 'rgba(255,167,38,0.15)', border: '#FFA726', icon: 'alert' };
       case 'success':
-        return { bg: 'rgba(76,175,80,0.15)', border: '#4CAF50' };
+        return { bg: 'rgba(76,175,80,0.15)', border: '#4CAF50', icon: 'check-circle' };
       default:
-        return { bg: 'rgba(255,107,107,0.15)', border: '#FF6B6B' };
+        return { bg: 'rgba(33,150,243,0.15)', border: '#2196F3', icon: 'information' };
     }
   };
 
+  // Componente de gráfico reutilizável
+  const ChartCard = ({ 
+    title, 
+    data, 
+    config, 
+    type = 'line',
+    suffix 
+  }: { 
+    title: string; 
+    data: ChartData | null; 
+    config: any; 
+    type?: 'line' | 'bar';
+    suffix: string;
+  }) => (
+    <View style={styles.chartContainer}>
+      <Text style={styles.chartTitle}>{title}</Text>
+      {loading ? (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#FF6B6B" />
+        </View>
+      ) : data ? (
+        type === 'line' ? (
+          <LineChart
+            data={data}
+            width={dimensions.chartWidth}
+            height={dimensions.chartHeight}
+            yAxisSuffix={suffix}
+            withDots
+            withShadow={false}
+            withVerticalLabels={false}
+            chartConfig={config}
+            bezier
+            style={styles.chart}
+          />
+        ) : (
+          <BarChart
+            data={data}
+            width={dimensions.chartWidth}
+            height={dimensions.chartHeight}
+            yAxisLabel=""
+            yAxisSuffix={suffix}
+            withInnerLines={true}
+            showBarTops={false}
+            withVerticalLabels={false}
+            fromZero={true}
+            segments={4}
+            chartConfig={config}
+            style={styles.chart}
+          />
+        )
+      ) : (
+        <Text style={styles.errorText}>Nenhum dado disponível</Text>
+      )}
+    </View>
+  );
+
   return (
-    <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
+    <ScrollView 
+      style={styles.scrollView} 
+      showsVerticalScrollIndicator={false}
+      refreshControl={
+        <RefreshControl 
+          refreshing={refreshing} 
+          onRefresh={onRefresh}
+          tintColor="#FF6B6B"
+          colors={['#FF6B6B']}
+        />
+      }
+    >
       <View style={styles.container}>
+        {/* Header */}
         <View style={styles.header}>
+          <Text style={styles.headerTitle}>Dashboard</Text>
           <View style={styles.statusBadge}>
             <View style={styles.statusDot} />
             <Text style={styles.statusText}>Ativo</Text>
@@ -237,158 +376,77 @@ export default function DashboardScreen() {
         </View>
 
         <View style={styles.contentContainer}>
-          {/* Gráficos lado a lado */}
-          <View style={styles.graficos}>
-            {/* Temperatura */}
-            <View style={styles.chartContainer}>
-              <Text style={styles.texto}>Temperatura</Text>
-              {loading ? (
-                <Text style={styles.loadingText}>Carregando...</Text>
-              ) : temperatureData ? (
-                <LineChart
-                  data={temperatureData}
-                  width={chartWidth}
-                  height={chartHeight}
-                  yAxisSuffix="°C"
-                  withDots
-                  withShadow={false}
-                  withVerticalLabels={false}
-                  chartConfig={tempChartConfig}
-                  bezier
-                  style={styles.chart}
-                />
-              ) : (
-                <Text style={styles.errorText}>Nenhum dado disponível</Text>
-              )}
-            </View>
-
-            {/* Umidade */}
-            <View style={styles.chartContainer}>
-              <Text style={styles.texto}>Umidade</Text>
-              {loading ? (
-                <Text style={styles.loadingText}>Carregando...</Text>
-              ) : humidityData ? (
-                <LineChart
-                  data={humidityData}
-                  width={chartWidth}
-                  height={chartHeight}
-                  yAxisSuffix="%"
-                  withDots
-                  withShadow={false}
-                  withVerticalLabels={false}
-                  chartConfig={humChartConfig}
-                  bezier
-                  style={styles.chart}
-                />
-              ) : (
-                <Text style={styles.errorText}>Nenhum dado disponível</Text>
-              )}
-            </View>
+          {/* Gráficos Linha 1 */}
+          <View style={styles.chartsRow}>
+            <ChartCard 
+              title="Temperatura" 
+              data={temperatureData}
+              config={chartConfigs.temperature}
+              type="line"
+              suffix="°C"
+            />
+            <ChartCard 
+              title="Umidade" 
+              data={humidityData}
+              config={chartConfigs.humidity}
+              type="line"
+              suffix="%"
+            />
           </View>
 
-          <View style={styles.graficos}>
-            {/* Detecção de Fumaça */}
-            <View style={styles.chartContainer}>
-              <View style={styles.chartHeader}>
-                <Text style={styles.texto}>Detecção de Fumaça</Text>
-              </View>
-              {loading ? (
-                <View style={styles.loadingContainer}>
-                  <Text style={styles.loadingText}>Carregando...</Text>
-                </View>
-              ) : FumacaData ? (
-                <View style={styles.chartWrapper}>
-                  <BarChart
-                    data={FumacaData}
-                    width={chartWidth}
-                    height={chartHeight}
-                    yAxisLabel=""
-                    yAxisSuffix="ppm"
-                    withInnerLines={true}
-                    showBarTops={false}
-                    withVerticalLabels={false}
-                    withHorizontalLabels={true}
-                    fromZero={true}
-                    segments={4}
-                    chartConfig={FumacaChartConfig}
-                    style={styles.chart}
-                  />
-                </View>
-              ) : (
-                <View style={styles.loadingContainer}>
-                  <Text style={styles.errorText}>Nenhum dado disponível</Text>
-                </View>
-              )}
-            </View>
-
-            {/* Temperatura Máx/Min */}
-            <View style={styles.chartContainer}>
-              <View style={styles.chartHeader}>
-                <Text style={styles.texto}>Temperatura Máx/Min</Text>
-              </View>
-              {loading ? (
-                <View style={styles.loadingContainer}>
-                  <Text style={styles.loadingText}>Carregando...</Text>
-                </View>
-              ) : MaxData ? (
-                <View style={styles.chartWrapper}>
-                  <BarChart
-                    data={MaxData}
-                    width={chartWidth}
-                    height={chartHeight}
-                    yAxisLabel=""
-                    yAxisSuffix="°C"
-                    withInnerLines={true}
-                    showBarTops={false}
-                    withVerticalLabels={false}
-                    withHorizontalLabels={true}
-                    fromZero={true}
-                    segments={4}
-                    chartConfig={MaxChartConfig}
-                    style={styles.chart}
-                  />
-                </View>
-              ) : (
-                <View style={styles.loadingContainer}>
-                  <Text style={styles.errorText}>Nenhum dado disponível</Text>
-                </View>
-              )}
-            </View>
+          {/* Gráficos Linha 2 */}
+          <View style={styles.chartsRow}>
+            <ChartCard 
+              title="Detecção de Fumaça" 
+              data={fumacaData}
+              config={chartConfigs.fumaca}
+              type="bar"
+              suffix="ppm"
+            />
+            <ChartCard 
+              title="Temperatura Máx/Min" 
+              data={maxMinData}
+              config={chartConfigs.maxMin}
+              type="bar"
+              suffix="°C"
+            />
           </View>
 
           {/* Cards de estatísticas */}
           <View style={styles.statsContainer}>
             {stats.map((stat, index) => (
-              <View key={index} style={[styles.statCard, getCardDimensions()]}>
-                <MaterialCommunityIcons name={stat.icon} size={40} color={stat.color} />
+              <View 
+                key={index} 
+                style={[
+                  styles.statCard, 
+                  { 
+                    width: dimensions.cardWidth, 
+                    height: dimensions.cardHeight 
+                  }
+                ]}
+              >
+                <MaterialCommunityIcons 
+                  name={stat.icon} 
+                  size={40} 
+                  color={stat.color} 
+                />
                 <Text style={styles.statValue}>{stat.value}</Text>
                 <Text style={styles.statTitle}>{stat.title}</Text>
               </View>
             ))}
           </View>
 
-          {/* Métrica de Umidade */}
-          <View style={styles.metricsContainer}>
-            <View style={[styles.metricCard, { flex: 1 }]}>
-              <View style={styles.metricHeader}>
-                <MaterialCommunityIcons name="water-percent" size={20} color="#00BCD4" />
-                <Text style={styles.metricTitle}>Umidade</Text>
-              </View>
-              <Text style={styles.metricValue}>{humidity}%</Text>
-              <View style={styles.progressBar}>
-                <View
-                  style={[
-                    styles.progressFill,
-                    { width: `${humidity}%`, backgroundColor: '#00BCD4' },
-                  ]}
-                />
-              </View>
-            </View>
-          </View>
 
           {/* Alertas Recentes */}
           <View style={styles.alertsContainer}>
-            <Text style={styles.alertsTitle}>⚠️ Alertas Recentes</Text>
+            <View style={styles.alertsHeader}>
+              <MaterialCommunityIcons 
+                name="bell-ring" 
+                size={20} 
+                color="#FFA726" 
+              />
+              <Text style={styles.alertsTitle}>Alertas Recentes</Text>
+            </View>
             {alerts.map((alert) => {
               const colors = getAlertColors(alert.severity);
               return (
@@ -396,16 +454,14 @@ export default function DashboardScreen() {
                   key={alert.id}
                   style={[
                     styles.alertCard,
-                    { backgroundColor: colors.bg, borderLeftColor: colors.border },
-                  ]}>
+                    { 
+                      backgroundColor: colors.bg, 
+                      borderLeftColor: colors.border 
+                    },
+                  ]}
+                >
                   <MaterialCommunityIcons
-                    name={
-                      alert.severity === 'warning'
-                        ? 'alert'
-                        : alert.severity === 'success'
-                        ? 'check-circle'
-                        : 'information'
-                    }
+                    name={colors.icon as any}
                     size={20}
                     color={colors.border}
                   />
@@ -426,36 +482,40 @@ export default function DashboardScreen() {
 const styles = StyleSheet.create({
   scrollView: { 
     flex: 1, 
-    backgroundColor: '#1a1a1a' 
+    backgroundColor: '#F0F4F8' 
   },
   container: { 
     flex: 1, 
     padding: 16, 
-    backgroundColor: '#D6D4CE' 
+    paddingBottom: 32 
   },
   contentContainer: { 
     width: '100%', 
     alignItems: 'center' 
   },
   header: { 
-    width: '100%', 
-    marginTop: 30, 
+    width: '100%',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: 16,
     marginBottom: 24 
   },
-  texto: { 
-    color: '#FFFFFF', 
-    fontSize: 16, 
-    fontWeight: '600',
-    textAlign: 'center',
+  headerTitle: {
+    fontSize: 28,
+    fontWeight: 'bold',
+    color: '#334155',
   },
   statusBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#2a2a2a',
+    backgroundColor: 'rgba(76, 175, 80, 0.15)',
     borderRadius: 20,
     paddingHorizontal: 12,
     paddingVertical: 6,
     gap: 6,
+    borderWidth: 1,
+    borderColor: 'rgba(76, 175, 80, 0.3)',
   },
   statusDot: { 
     width: 8, 
@@ -464,51 +524,41 @@ const styles = StyleSheet.create({
     backgroundColor: '#4CAF50' 
   },
   statusText: { 
-    color: '#FFFFFF', 
+    color: '#4CAF50', 
     fontSize: 12, 
     fontWeight: '600' 
   },
-  graficos: {
+  chartsRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     width: '100%',
-    gap: 16,
-    marginBottom: 24,
+    gap: 12,
+    marginBottom: 16,
   },
   chartContainer: {
     flex: 1,
-    backgroundColor: '#1E1E1E',
+    backgroundColor: '#FFFFFF',
     borderRadius: 16,
-    padding: 20,
+    padding: 16,
     alignItems: 'center',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 8,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 3,
     borderWidth: 1,
-    borderColor: '#2a2a2a',
-    minWidth: 180,
+    borderColor: '#E2E8F0',
   },
-  chartHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
+  chartTitle: {
+    color: '#334155',
+    fontSize: 14,
+    fontWeight: '600',
     marginBottom: 12,
-    width: '100%',
-    justifyContent: 'center',
-  },
-  chartWrapper: {
-    width: '100%',
-    alignItems: 'center',
-    overflow: 'hidden',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
+    textAlign: 'center',
   },
   chart: { 
     borderRadius: 12,
     marginVertical: 8,
-    marginHorizontal: 4,
   },
   loadingContainer: {
     flex: 1,
@@ -516,11 +566,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     minHeight: 150,
   },
-  loadingText: { 
-    color: '#ccc' 
-  },
   errorText: { 
-    color: '#FF6B6B' 
+    color: '#FF6B6B',
+    fontSize: 12,
   },
   statsContainer: {
     width: '100%',
@@ -528,71 +576,104 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     justifyContent: 'space-between',
     gap: 12,
-    marginBottom: 20,
+    marginBottom: 16,
   },
   statCard: {
-    backgroundColor: '#1E1E1E',
+    backgroundColor: '#FFFFFF',
     borderRadius: 16,
     padding: 16,
     alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.22,
+    shadowRadius: 2.22,
   },
   statValue: { 
-    color: '#FFFFFF', 
+    color: '#334155', 
+    fontSize: 24,
     fontWeight: 'bold', 
-    marginVertical: 8,
+    marginTop: 8,
   },
   statTitle: { 
-    color: '#888'
+    color: '#64748B',
+    fontSize: 12,
+    marginTop: 4,
   },
-  metricsContainer: { 
-    width: '100%', 
-    flexDirection: 'row', 
-    gap: 12, 
-    marginBottom: 20 
+  humidityCard: {
+    width: '100%',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    padding: 20,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    elevation: 3,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
   },
-  metricCard: { 
-    backgroundColor: '#1E1E1E', 
-    borderRadius: 16, 
-    padding: 16 
+  humidityHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 12,
   },
-  metricHeader: { 
-    flexDirection: 'row', 
-    alignItems: 'center', 
-    gap: 8, 
-    marginBottom: 12 
+  humidityTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#334155',
   },
-  metricTitle: { 
-    fontSize: 14, 
-    fontWeight: '600', 
-    color: '#FFFFFF' 
+  humidityValue: {
+    fontSize: 48,
+    fontWeight: 'bold',
+    color: '#00BCD4',
+    marginBottom: 12,
   },
-  metricValue: { 
-    fontSize: 28, 
-    fontWeight: 'bold', 
-    color: '#FFFFFF' 
+  humidityLabel: {
+    fontSize: 12,
+    color: '#64748B',
+    marginTop: 8,
   },
   progressBar: { 
     width: '100%', 
     height: 8, 
-    backgroundColor: '#3a3a3a', 
-    borderRadius: 4 
+    backgroundColor: '#E2E8F0', 
+    borderRadius: 4,
+    overflow: 'hidden',
   },
   progressFill: { 
     height: '100%', 
-    borderRadius: 4 
+    borderRadius: 4,
   },
   alertsContainer: {
     width: '100%',
-    backgroundColor: '#1E1E1E',
+    backgroundColor: '#FFFFFF',
     borderRadius: 16,
     padding: 16,
-    marginBottom: 20,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    elevation: 3,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+  },
+  alertsHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 16,
   },
   alertsTitle: { 
-    color: '#FFFFFF',
+    color: '#334155',
     fontSize: 16, 
-    fontWeight: 'bold', 
-    marginBottom: 16 
+    fontWeight: 'bold',
   },
   alertCard: {
     flexDirection: 'row',
@@ -607,12 +688,13 @@ const styles = StyleSheet.create({
     flex: 1 
   },
   alertText: { 
-    color: '#FFFFFF', 
+    color: '#334155', 
     fontSize: 14, 
-    fontWeight: '500' 
+    fontWeight: '500',
+    marginBottom: 4,
   },
   alertTime: { 
-    color: '#888', 
+    color: '#64748B', 
     fontSize: 12 
   },
 });

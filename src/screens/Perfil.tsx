@@ -194,12 +194,12 @@ const ProfileScreen = () => {
 const styles = StyleSheet.create({
   scrollView: {
     flex: 1,
-    backgroundColor: '#D6D4CE',
+    backgroundColor: '#F0F4F8',
   },
   container: {
     flex: 1,
     padding: screenWidth * 0.05,
-    backgroundColor: '#D6D4CE',
+    backgroundColor: '#F0F4F8',
     alignItems: 'center',
   },
   contentContainer: {
@@ -216,7 +216,7 @@ const styles = StyleSheet.create({
     marginTop: 30,
   },
   editButton: {
-    backgroundColor: '#D9D9D9',
+    backgroundColor: '#FFFFFF',
     paddingHorizontal: screenWidth * 0.05,
     paddingVertical: screenHeight * 0.015,
     borderRadius: 20,
@@ -227,13 +227,13 @@ const styles = StyleSheet.create({
     shadowRadius: 2.22,
   },
   editButtonText: {
-    color: '#1E1E1E',
+    color: '#334155',
     fontWeight: '600',
     fontSize: screenWidth < 360 ? 14 : 16,
   },
   infoContainer: {
     width: '100%',
-    backgroundColor: '#1E1E1E',
+    backgroundColor: '#FFFFFF',
     borderRadius: 20,
     padding: screenWidth * 0.06,
     elevation: 3,
@@ -249,7 +249,7 @@ const styles = StyleSheet.create({
   name: {
     fontSize: screenWidth < 360 ? 24 : 28,
     fontWeight: 'bold',
-    color: '#FFFFFF',
+    color: '#334155',
     marginBottom: 4,
   },
   infoSection: {
@@ -258,7 +258,7 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: screenWidth < 360 ? 18 : 20,
     fontWeight: '600',
-    color: '#FFFFFF',
+    color: '#334155',
     marginBottom: screenHeight * 0.02,
   },
   infoRow: {
@@ -267,11 +267,11 @@ const styles = StyleSheet.create({
     marginBottom: screenHeight * 0.02,
     paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: '#D9D9D9',
+    borderBottomColor: '#E2E8F0',
   },
   infoLabel: {
     fontSize: screenWidth < 360 ? 14 : 16,
-    color: '#E0E0E0',
+    color: '#334155',
     opacity: 0.9,
     marginLeft: 12,
     width: screenWidth * 0.25,
@@ -279,16 +279,16 @@ const styles = StyleSheet.create({
   infoValue: {
     flex: 1,
     fontSize: screenWidth < 360 ? 14 : 16,
-    color: '#FFFFFF',
+    color: '#334155',
     marginLeft: 12,
   },
   input: {
     flex: 1,
     fontSize: screenWidth < 360 ? 14 : 16,
-    color: '#FFFFFF',
+    color: '#334155',
     marginLeft: 12,
     padding: 8,
-    backgroundColor: '#2A2A2A',
+    backgroundColor: '#F0F4F8',
     borderRadius: 8,
   },
   statsSection: {
@@ -300,7 +300,7 @@ const styles = StyleSheet.create({
     marginTop: screenHeight * 0.02,
   },
   statCard: {
-    backgroundColor: '#2A2A2A',
+    backgroundColor: '#FFFFFF',
     borderRadius: 16,
     padding: screenWidth * 0.04,
     alignItems: 'center',
@@ -314,12 +314,12 @@ const styles = StyleSheet.create({
   statValue: {
     fontSize: screenWidth < 360 ? 20 : 24,
     fontWeight: 'bold',
-    color: '#D9D9D9',
+    color: '#334155',
     marginBottom: 4,
   },
   statLabel: {
     fontSize: screenWidth < 360 ? 12 : 14,
-    color: '#E0E0E0',
+    color: '#334155',
     opacity: 0.9,
   },
   loadingContainer: {

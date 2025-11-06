@@ -3,8 +3,10 @@ import { StyleSheet, Text, View, ActivityIndicator, RefreshControl, ScrollView, 
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTemperature } from '../hooks/useTemperature';
 import { useWeather } from '../hooks/useWeather';
-import { config } from '../config';
 import { supabase } from '../routes/supabase';
+import Toast from 'react-native-toast-message';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+
 
 const windowWidth = Dimensions.get('window').width;
 
@@ -32,6 +34,26 @@ export default function HomeScreen() {
   };
 
   useEffect(() => {
+    const showWelcomeToast = async () => {
+    try {
+      const hasLoggedBefore = await AsyncStorage.getItem('hasLoggedBefore');
+      if (!hasLoggedBefore) {
+        Toast.show({
+          type: 'success',
+          text1: 'Login realizado com sucesso!',
+          text2: 'Bem-vindo à plataforma 👋',
+          position: 'bottom',
+          visibilityTime: 3000,
+          autoHide: true,
+          bottomOffset: 60,
+        });
+        await AsyncStorage.setItem('hasLoggedBefore', 'true');
+      }
+    } catch (error) {
+      console.error('Erro ao exibir toast:', error);
+    }
+  };
+
     fetchSensorData();
   }, []);
 
@@ -67,20 +89,20 @@ export default function HomeScreen() {
             onPress={refetchTemp}
             style={styles.refreshButton}
           >
-            <MaterialCommunityIcons name="refresh" size={20} color="white" />
+            <MaterialCommunityIcons name="refresh" size={20} color="#334155" />
           </TouchableOpacity>
         </View>
         {loading ? (
-          <ActivityIndicator size="large" color="#fff" />
+          <ActivityIndicator size="large" color="#334155" />
         ) : (
           <Text style={styles.temperature}>
             {temperatura !== null ? `${temperatura}°` : 'Carregando...'}
           </Text>
         )}
         <View style={styles.iconContainer}>
-          <MaterialCommunityIcons name="thermometer" size={22} color="white" />
-          <MaterialCommunityIcons name="snowflake" size={22} color="white" />
-          <MaterialCommunityIcons name="weather-snowy" size={22} color="white" />
+          <MaterialCommunityIcons name="thermometer" size={22} color="#334155" />
+          <MaterialCommunityIcons name="snowflake" size={22} color="#334155" />
+          <MaterialCommunityIcons name="weather-snowy" size={22} color="#334155" />
         </View>
       </View>
 
@@ -92,7 +114,7 @@ export default function HomeScreen() {
             { icon: 'thermometer', label: 'Temperatura', value: `${temperatura ?? '---'}°C` },
           ].map(({ icon, label, value }, i) => (
             <View key={i} style={styles.infoBox}>
-              <MaterialCommunityIcons name={icon as any} size={24} color="white" />
+              <MaterialCommunityIcons name={icon as any} size={24} color="#334155" />
               <Text style={styles.infoText}>{label}</Text>
               <Text style={[styles.infoText, styles.infoValue]}>{value}</Text>
             </View>
@@ -118,20 +140,20 @@ export default function HomeScreen() {
 const styles = StyleSheet.create({
   scrollView: {
     flex: 1,
-    backgroundColor: '#D6D4CE',
   },
   container: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
     padding: 20,
-    backgroundColor: '#D6D4CE',
+    backgroundColor: '#F0F4F8',
   },
   panel: {
     width: '100%',
     padding: 20,
-    backgroundColor: '#1E1E1E',
+    backgroundColor: '#FFFFFF',
     borderRadius: 16,
+    borderColor: '#E2E8F0',
     alignItems: 'center',
     marginBottom: 20,
     elevation: 3,
@@ -153,7 +175,8 @@ const styles = StyleSheet.create({
   secondPanel: {
     width: '100%',
     padding: 30,
-    backgroundColor: '#1E1E1E',
+    backgroundColor: '#FFFFFF',
+    borderColor: '#E2E8F0',
     borderRadius: 16,
     elevation: 3,
     shadowColor: '#000',
@@ -162,12 +185,12 @@ const styles = StyleSheet.create({
     shadowRadius: 3.84,
   },
   panelTitle: {
-    color: '#fff',
+    color: '#334155',
     fontSize: 18,
     fontWeight: '600',
   },
   temperature: {
-    color: '#fff',
+    color: '#334155',
     fontSize: 48,
     fontWeight: 'bold',
   },
@@ -189,7 +212,8 @@ const styles = StyleSheet.create({
     height: windowWidth < 380 ? 80 : 90,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#2A2A2A',
+    backgroundColor: '#FFFFFF',
+    borderColor: '#E2E8F0',
     borderRadius: 16,
     elevation: 2,
     shadowColor: '#000',
@@ -198,7 +222,7 @@ const styles = StyleSheet.create({
     shadowRadius: 2.22,
   },
   infoText: {
-    color: '#fff',
+    color: '#334155',
     marginTop: 4,
     fontSize: windowWidth < 380 ? 11 : 13,
     textAlign: 'center',
@@ -207,36 +231,37 @@ const styles = StyleSheet.create({
     marginTop: 2,
     fontSize: windowWidth < 380 ? 12 : 14,
     fontWeight: 'bold',
-    color: '#D9D9D9',
+    color: '#334155',
   },
   infoRow: {
     flex: 1,
     alignItems: 'center',
-    backgroundColor: '#2A2A2A',
+    borderColor: '#F0F4F8',
+    backgroundColor: '#F0F4F8',
     padding: 15,
     borderRadius: 12,
     marginHorizontal: 5,
   },
   weatherValue: {
-    color: '#fff',
+    color: '#334155',
     fontSize: windowWidth < 380 ? 20 : 24,
     fontWeight: 'bold',
   },
   weatherDescription: {
-    color: '#E0E0E0',
+    color: '#334155',
     marginTop: 4,
   },
   weatherSubtext: {
     fontSize: 12,
     marginTop: 4,
-    color: '#D9D9D9',
+    color: '#64748B',
   },
   errorText: {
-    color: '#FF6B6B',
+    color: '#7DD3FC',
     fontSize: 16,
     marginTop: 10,
     textAlign: 'center',
-    backgroundColor: '#2A2A2A',
+    backgroundColor: '#FFFFFF',
     padding: 15,
     borderRadius: 10,
   },

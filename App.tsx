@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import AppNavigator from './src/routes/AppNavigator';
+import Toast from 'react-native-toast-message';
 
 // Error Boundary para capturar erros
 class ErrorBoundary extends React.Component<
@@ -71,6 +72,7 @@ export default function App() {
   return (
     <ErrorBoundary>
       <AppNavigator />
+      <Toast />
     </ErrorBoundary>
   );
 }

@@ -53,7 +53,7 @@ const CustomTabBar: React.FC<BottomTabBarProps> = ({ state, descriptors, navigat
               <Ionicons
                 name={iconName}
                 size={22}
-                color={isFocused ? '#1E1E1E' : '#E0E0E0'}
+                color={isFocused ? '#334155' : '#CBD5E1'}
               />
               {isFocused && (
                 <Text style={styles.activeLabel}>
@@ -73,13 +73,13 @@ const CustomTabBar: React.FC<BottomTabBarProps> = ({ state, descriptors, navigat
 
 const styles = StyleSheet.create({
   tabBarWrapper: {
-    backgroundColor: '#E4E1DB', // fundo igual ao fundo do app
+    backgroundColor: '#F0F4F8', // fundo igual ao fundo do app
     paddingBottom: 10,
     paddingTop: 5,
   },
   tabBarContainer: {
     flexDirection: 'row',
-    backgroundColor: '#1E1E1E',
+    backgroundColor: '#FFFFFF',
     borderRadius: 30,
     marginHorizontal: 16,
     paddingVertical: 10,
@@ -103,7 +103,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#D9D9D9',
   },
   activeLabel: {
-    color: '#1E1E1E',
+    color: '#334155',
     marginLeft: 6,
     fontSize: screenWidth < 380 ? 12 : 14,
     fontWeight: '600',
