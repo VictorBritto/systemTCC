@@ -90,7 +90,6 @@ export default function HomeScreen() {
             { icon: 'cloud', label: 'Fumaça', value: sensorData?.fumaca ? 'Sim' : 'Não' },
             { icon: 'water', label: 'Umidade', value: sensorData?.umidade ? `${sensorData.umidade}%` : '---' },
             { icon: 'thermometer', label: 'Temperatura', value: `${temperatura ?? '---'}°C` },
-            { icon: 'human-greeting', label: 'Presença', value: sensorData?.presenca ? 'Sim' : 'Não' },
           ].map(({ icon, label, value }, i) => (
             <View key={i} style={styles.infoBox}>
               <MaterialCommunityIcons name={icon as any} size={24} color="white" />
@@ -108,21 +107,6 @@ export default function HomeScreen() {
             <Text style={styles.weatherDescription}>Ar livre</Text>
             <Text style={[styles.weatherDescription, styles.weatherSubtext]}>
               {weather?.description || '---'}
-            </Text>
-          </View>
-          <View style={styles.infoRow}>
-            <Text style={styles.weatherValue}>
-              {temperatura !== null ? `${temperatura}°C` : '---'}
-            </Text>
-            <Text style={styles.weatherDescription}>Atual</Text>
-            <Text style={[styles.weatherDescription, styles.weatherSubtext]}>
-              {temperatura !== null && (
-                temperatura < config.temperature.lowerThreshold
-                  ? 'Abaixo do limite!'
-                  : temperatura > config.temperature.upperThreshold
-                    ? 'Acima do limite!'
-                    : 'Normal'
-              )}
             </Text>
           </View>
         </View>
