@@ -34,7 +34,7 @@ export default function HomeScreen() {
   };
 
   useEffect(() => {
-    const showWelcomeToast = async () => {
+  const showWelcomeToast = async () => {
     try {
       const hasLoggedBefore = await AsyncStorage.getItem('hasLoggedBefore');
       if (!hasLoggedBefore) {
@@ -42,7 +42,7 @@ export default function HomeScreen() {
           type: 'success',
           text1: 'Login realizado com sucesso!',
           text2: 'Bem-vindo à plataforma 👋',
-          position: 'bottom',
+          position: 'top',
           visibilityTime: 3000,
           autoHide: true,
           bottomOffset: 60,
@@ -54,8 +54,9 @@ export default function HomeScreen() {
     }
   };
 
-    fetchSensorData();
-  }, []);
+  showWelcomeToast();
+  fetchSensorData();
+}, []);
 
   const onRefresh = async () => {
     setRefreshing(true);

@@ -9,8 +9,10 @@ import {
   TextInput,
   ActivityIndicator,
   Dimensions,
+  Image,
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import * as ImagePicker from 'expo-image-picker';
 import { supabase } from '../routes/supabase';
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
@@ -21,11 +23,13 @@ interface UserProfile {
   phone: string;
   location: string;
   role: string;
+  avatar_url?: string;
 }
 
 const ProfileScreen = () => {
   const [user, setUser] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [uploading, setUploading] = useState(false);
   const [editing, setEditing] = useState(false);
   const [profile, setProfile] = useState<UserProfile>({
     email: '',
@@ -33,6 +37,7 @@ const ProfileScreen = () => {
     phone: '+5519928343697',
     location: 'Interior',
     role: 'Administrador',
+    avatar_url: undefined,
   });
 
   useEffect(() => {
@@ -54,6 +59,7 @@ const ProfileScreen = () => {
           phone: user.user_metadata?.phone || prev.phone,
           location: user.user_metadata?.location || prev.location,
           role: user.user_metadata?.role || prev.role,
+          avatar_url: user.user_metadata?.avatar_url,
         }));
       }
     } catch (error) {
@@ -61,6 +67,116 @@ const ProfileScreen = () => {
       Alert.alert('Erro', 'Não foi possível carregar os dados do usuário.');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const pickImage = async () => {
+    try {
+      // Solicitar permissões
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      
+      if (status !== 'granted') {
+        Alert.alert('Permissão negada', 'Precisamos de permissão para acessar suas fotos.');
+        return;
+      }
+
+      // Abrir seletor de imagens
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.8,
+      });
+
+      if (!result.canceled && result.assets[0]) {
+        await uploadImage(result.assets[0].uri);
+      }
+    } catch (error) {
+      console.error('Erro ao selecionar imagem:', error);
+      Alert.alert('Erro', 'Não foi possível selecionar a imagem.');
+    }
+  };
+
+  const uploadImage = async (uri: string) => {
+    try {
+      setUploading(true);
+      console.log('=== INÍCIO DO UPLOAD ===');
+      console.log('URI da imagem:', uri);
+
+      if (!user?.id) {
+        throw new Error('Usuário não autenticado');
+      }
+      console.log('✓ Usuário autenticado:', user.id);
+
+      // Método alternativo: usar FormData e ArrayBuffer
+      console.log('Lendo arquivo...');
+      const response = await fetch(uri);
+      const arrayBuffer = await response.arrayBuffer();
+      const fileSize = arrayBuffer.byteLength;
+      console.log('✓ Arquivo lido:', fileSize, 'bytes');
+
+      if (fileSize === 0) {
+        throw new Error('Arquivo vazio');
+      }
+
+      if (fileSize > 5 * 1024 * 1024) { // 5MB
+        throw new Error('Arquivo muito grande (máximo 5MB)');
+      }
+
+      // Gerar nome único para o arquivo
+      const fileExt = uri.split('.').pop()?.toLowerCase() || 'jpg';
+      const fileName = `${user.id}-${Date.now()}.${fileExt}`;
+      console.log('✓ Nome do arquivo:', fileName);
+
+      // Upload para o Supabase Storage usando ArrayBuffer
+      console.log('Enviando para Supabase...');
+      const { data, error: uploadError } = await supabase.storage
+        .from('profile-images')
+        .upload(fileName, arrayBuffer, {
+          contentType: `image/${fileExt}`,
+          upsert: true,
+        });
+
+      if (uploadError) {
+        console.error('✗ Erro no upload:', JSON.stringify(uploadError, null, 2));
+        throw new Error(uploadError.message || 'Erro ao fazer upload');
+      }
+
+      console.log('✓ Upload concluído:', data?.path);
+
+      // Obter URL pública
+      const { data: { publicUrl } } = supabase.storage
+        .from('profile-images')
+        .getPublicUrl(fileName);
+
+      console.log('✓ URL pública:', publicUrl);
+
+      // Atualizar perfil do usuário
+      await updateProfile({ avatar_url: publicUrl });
+
+      console.log('=== UPLOAD FINALIZADO COM SUCESSO ===');
+      Alert.alert('Sucesso! 🎉', 'Foto de perfil atualizada!');
+    } catch (error: any) {
+      console.error('=== ERRO NO UPLOAD ===');
+      console.error('Tipo:', error.name);
+      console.error('Mensagem:', error.message);
+      console.error('Stack:', error.stack);
+      
+      let errorMessage = 'Não foi possível fazer upload da imagem.';
+      
+      if (error.message.includes('autenticado')) {
+        errorMessage = 'Você precisa estar logado para alterar a foto.';
+      } else if (error.message.includes('grande')) {
+        errorMessage = 'A imagem é muito grande. Escolha uma menor que 5MB.';
+      } else if (error.message.includes('vazio')) {
+        errorMessage = 'Arquivo inválido. Tente outra imagem.';
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+      
+      Alert.alert('Erro no Upload ❌', errorMessage);
+    } finally {
+      setUploading(false);
     }
   };
 
@@ -75,7 +191,10 @@ const ProfileScreen = () => {
 
       setProfile(prev => ({ ...prev, ...updates }));
       if (editing) setEditing(false);
-      Alert.alert('Sucesso', 'Perfil atualizado com sucesso!');
+      
+      if (!updates.avatar_url) {
+        Alert.alert('Sucesso', 'Perfil atualizado com sucesso!');
+      }
     } catch (error) {
       console.error('Erro ao atualizar perfil:', error);
       Alert.alert('Erro', 'Não foi possível atualizar o perfil.');
@@ -109,7 +228,43 @@ const ProfileScreen = () => {
 
           <View style={styles.infoContainer}>
             <View style={styles.infoHeader}>
+              {/* Avatar com botão de upload */}
+              <TouchableOpacity 
+                style={styles.avatarContainer}
+                onPress={pickImage}
+                disabled={uploading}
+              >
+                {profile.avatar_url ? (
+                  <Image 
+                    source={{ uri: profile.avatar_url }} 
+                    style={styles.avatar}
+                  />
+                ) : (
+                  <View style={styles.avatarPlaceholder}>
+                    <MaterialCommunityIcons 
+                      name="account" 
+                      size={60} 
+                      color="#94A3B8" 
+                    />
+                  </View>
+                )}
+                
+                {/* Ícone de câmera sobreposto */}
+                <View style={styles.cameraIconContainer}>
+                  {uploading ? (
+                    <ActivityIndicator size="small" color="#FFFFFF" />
+                  ) : (
+                    <MaterialCommunityIcons 
+                      name="camera" 
+                      size={20} 
+                      color="#FFFFFF" 
+                    />
+                  )}
+                </View>
+              </TouchableOpacity>
+
               <Text style={styles.name}>{profile.name}</Text>
+              <Text style={styles.role}>{profile.role}</Text>
             </View>
 
             <View style={styles.infoSection}>
@@ -164,24 +319,6 @@ const ProfileScreen = () => {
                 ) : (
                   <Text style={styles.infoValue}>{profile.location}</Text>
                 )}
-              </View>
-            </View>
-
-            <View style={styles.statsSection}>
-              <Text style={styles.sectionTitle}>Estatísticas</Text>
-              <View style={styles.statsGrid}>
-                <View style={styles.statCard}>
-                  <Text style={styles.statValue}>152</Text>
-                  <Text style={styles.statLabel}>Alertas</Text>
-                </View>
-                <View style={styles.statCard}>
-                  <Text style={styles.statValue}>98%</Text>
-                  <Text style={styles.statLabel}>Uptime</Text>
-                </View>
-                <View style={styles.statCard}>
-                  <Text style={styles.statValue}>45</Text>
-                  <Text style={styles.statLabel}>Dias</Text>
-                </View>
               </View>
             </View>
           </View>
@@ -246,11 +383,55 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: screenHeight * 0.03,
   },
+  avatarContainer: {
+    position: 'relative',
+    marginBottom: 16,
+  },
+  avatar: {
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    borderWidth: 4,
+    borderColor: '#E2E8F0',
+  },
+  avatarPlaceholder: {
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    backgroundColor: '#E2E8F0',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 4,
+    borderColor: '#CBD5E1',
+  },
+  cameraIconContainer: {
+    position: 'absolute',
+    bottom: 0,
+    right: 0,
+    backgroundColor: '#3B82F6',
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 3,
+    borderColor: '#FFFFFF',
+    elevation: 3,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+  },
   name: {
     fontSize: screenWidth < 360 ? 24 : 28,
     fontWeight: 'bold',
     color: '#334155',
     marginBottom: 4,
+  },
+  role: {
+    fontSize: screenWidth < 360 ? 14 : 16,
+    color: '#64748B',
+    fontWeight: '500',
   },
   infoSection: {
     marginBottom: screenHeight * 0.03,
@@ -291,42 +472,11 @@ const styles = StyleSheet.create({
     backgroundColor: '#F0F4F8',
     borderRadius: 8,
   },
-  statsSection: {
-    marginTop: screenHeight * 0.03,
-  },
-  statsGrid: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginTop: screenHeight * 0.02,
-  },
-  statCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    padding: screenWidth * 0.04,
-    alignItems: 'center',
-    width: '31%',
-    elevation: 2,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.22,
-    shadowRadius: 2.22,
-  },
-  statValue: {
-    fontSize: screenWidth < 360 ? 20 : 24,
-    fontWeight: 'bold',
-    color: '#334155',
-    marginBottom: 4,
-  },
-  statLabel: {
-    fontSize: screenWidth < 360 ? 12 : 14,
-    color: '#334155',
-    opacity: 0.9,
-  },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#D6D4CE',
+    backgroundColor: '#F0F4F8',
   },
 });
 

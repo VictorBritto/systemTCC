@@ -10,11 +10,13 @@ import PerfilScreen from '../screens/Perfil';
 import SettingsScreen from '../screens/Settings';
 import DashboardScreen from '../screens/Dashboard';
 import CustomTabBar from '../components/CustomTabBar';
+import PasswordResetScreen from '../screens/Password';
 
 export type RootStackParamList = {
   Login: undefined;
   Register: undefined;
   Main: undefined;
+  Password: undefined;
 };
 
 export type RootTabParamList = {
@@ -48,6 +50,7 @@ export default function AppNavigator() {
       <Stack.Navigator initialRouteName="Login" screenOptions={{ headerShown: false }}>
         <Stack.Screen name="Login" component={LoginScreen} />
         <Stack.Screen name="Register" component={RegisterScreen} />
+        <Stack.Screen name="Password" component={PasswordResetScreen} />
         <Stack.Screen name="Main" component={MainTabs} />
       </Stack.Navigator>
     </NavigationContainer>

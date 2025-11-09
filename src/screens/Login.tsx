@@ -3,7 +3,6 @@ import { View, StyleSheet, Text, TouchableOpacity, Alert } from 'react-native';
 import { TextInput, Button } from 'react-native-paper';
 import { useNavigation } from '@react-navigation/native';
 import { useFonts } from 'expo-font';
-import { FontAwesome, AntDesign } from '@expo/vector-icons';
 import { supabase } from '../routes/supabase';
 import { useGoogleAuth } from '../components/googleSignIn';
 
@@ -67,6 +66,12 @@ function LoginScreen() {
           style={styles.input}
         />
 
+        <Text
+        style={[styles.cadastro, { fontFamily: 'Poppins-Medium' }]}
+        onPress={() => navigation.navigate('Password' as never)}>
+          Esqueceu a senha?
+        </Text>
+
         <Button mode="contained" onPress={handleLogin} style={styles.button}>
           Entrar
         </Button>
@@ -80,13 +85,6 @@ function LoginScreen() {
           Não tem uma conta ainda? Cadastrar-se
         </Text>
 
-        <Text style={[styles.or]}>ou</Text>
-
-        <View style={styles.socialButtonsContainer}>
-          <TouchableOpacity style={styles.socialButton} onPress={() => promptAsync()}>
-            <AntDesign name="google" size={24} color="black" />
-          </TouchableOpacity>
-        </View>
       </View>
     </View>
   );
@@ -128,6 +126,10 @@ const styles = StyleSheet.create({
   input: {
     marginBottom: 16,
     backgroundColor: '#FFFFFF',
+    padding: 10,
+    borderRadius: 8,
+    borderColor: '#ccc',
+    borderWidth: 1,
   },
   button: {
     marginTop: 24,

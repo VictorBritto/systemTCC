@@ -69,8 +69,8 @@ export default function DashboardScreen() {
     return {
       cardWidth: (isSmallScreen ? '100%' : isMediumScreen ? '47%' : '23%') as DimensionValue,
       cardHeight: isSmallScreen ? 130 : isMediumScreen ? 140 : 150,
-      chartWidth: screenWidth / 2.2,
-      chartHeight: Math.min(screenHeight * 0.23, 200)
+      chartWidth: screenWidth / 2.4,
+      chartHeight: 160
     };
   }, [screenWidth, screenHeight]);
 
@@ -109,7 +109,7 @@ export default function DashboardScreen() {
         ...baseConfig,
         color: (opacity = 1) => `rgba(0, 188, 212, ${opacity})`,
         propsForDots: { 
-          r: '4', 
+          r: '0', 
           strokeWidth: '2', 
           stroke: '#00BCD4', 
           fill: '#00BCD4' 
@@ -296,7 +296,6 @@ export default function DashboardScreen() {
     }
   };
 
-  // Componente de gráfico reutilizável
   const ChartCard = ({ 
     title, 
     data, 
@@ -479,6 +478,7 @@ export default function DashboardScreen() {
   );
 }
 
+
 const styles = StyleSheet.create({
   scrollView: { 
     flex: 1, 
@@ -487,11 +487,11 @@ const styles = StyleSheet.create({
   container: { 
     flex: 1, 
     padding: 16, 
-    paddingBottom: 32 
+    paddingBottom: 32, 
   },
   contentContainer: { 
     width: '100%', 
-    alignItems: 'center' 
+    alignItems: 'center',
   },
   header: { 
     width: '100%',
@@ -540,6 +540,8 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     borderRadius: 16,
     padding: 16,
+    paddingVertical: 10,
+    paddingHorizontal:8,
     alignItems: 'center',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
@@ -548,6 +550,7 @@ const styles = StyleSheet.create({
     elevation: 3,
     borderWidth: 1,
     borderColor: '#E2E8F0',
+    minHeight: 200,
   },
   chartTitle: {
     color: '#334155',
@@ -559,6 +562,7 @@ const styles = StyleSheet.create({
   chart: { 
     borderRadius: 12,
     marginVertical: 8,
+    overflow: 'hidden',
   },
   loadingContainer: {
     flex: 1,
@@ -698,3 +702,4 @@ const styles = StyleSheet.create({
     fontSize: 12 
   },
 });
+

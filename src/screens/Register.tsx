@@ -4,54 +4,70 @@ import { TextInput, Button } from 'react-native-paper';
 import { useNavigation } from '@react-navigation/native';
 import { supabase } from '../routes/supabase';
 
-type RegisterScreenProps = {
-  onRegister: () => void;
-  onLoginRedirect: () => void;
-};
-
-export default function RegisterScreen({  }: RegisterScreenProps) {
+export default function RegisterScreen() {
   const navigation = useNavigation();
   const [nome, setNome] = useState('');
   const [email, setEmail] = useState('');
+  const [telefone, setTelefone] = useState('');
   const [password, setPassword] = useState('');
   const [password2, setPassword2] = useState('');
 
-const handleRegister = async () => {
-  if (password !== password2) {
-    Alert.alert('Erro', 'As senhas não coincidem');
-    return;
-  }
+  const formatarTelefone = (text: string) => {
+    const numeros = text.replace(/\D/g, '');
 
-  if (!nome.trim()) {
-    Alert.alert('Erro', 'Por favor, insira seu nome');
-    return;
-  }
+    if (numeros.length <= 10) {
+      return numeros
+        .replace(/(\d{2})(\d)/, '($1) $2')
+        .replace(/(\d{4})(\d)/, '$1-$2');
+    } else {
+      return numeros
+        .replace(/(\d{2})(\d)/, '($1) $2')
+        .replace(/(\d{5})(\d)/, '$1-$2');
+    }
+  };
 
-  try {
-    const { error } = await supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        data: {
-          name: nome.trim(),
-          phone: '',
-          location: '',
-          role: 'Usuário'
-        }
-      }
-    });
+  const handleChange = (text: string) => {
+    const apenasNumeros = text.replace(/\D/g, '');
+    const formatado = formatarTelefone(apenasNumeros);
+    setTelefone(formatado);
+  };
 
-    if (error) {
-      Alert.alert('Erro', error.message);
+  const handleRegister = async () => {
+    if (password !== password2) {
+      Alert.alert('Erro', 'As senhas não coincidem');
       return;
     }
 
-    Alert.alert('Sucesso', 'Conta criada com sucesso!');
-    navigation.navigate('Login' as never);
-  } catch (err: any) {
-    Alert.alert('Erro', err.message || 'Erro ao registrar');
-  }
-};
+    if (!nome.trim()) {
+      Alert.alert('Erro', 'Por favor, insira seu nome');
+      return;
+    }
+
+    try {
+      const { error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          data: {
+            name: nome.trim(),
+            phone: telefone,
+            location: '',
+            role: 'Usuário',
+          },
+        },
+      });
+
+      if (error) {
+        Alert.alert('Erro', error.message);
+        return;
+      }
+
+      Alert.alert('Sucesso', 'Conta criada com sucesso!');
+      navigation.navigate('Login' as never);
+    } catch (err: any) {
+      Alert.alert('Erro', err.message || 'Erro ao registrar');
+    }
+  };
 
   return (
     <View style={styles.container}>
@@ -61,12 +77,7 @@ const handleRegister = async () => {
           Faça seu cadastro agora mesmo
         </Text>
 
-        <TextInput
-          label="Nome"
-          value={nome}
-          onChangeText={setNome}
-          style={styles.input}
-        />
+        <TextInput label="Nome" value={nome} onChangeText={setNome} style={styles.input} />
 
         <TextInput
           label="E-mail"
@@ -75,6 +86,15 @@ const handleRegister = async () => {
           style={styles.input}
           keyboardType="email-address"
           autoCapitalize="none"
+        />
+
+        <TextInput
+          label="Telefone"
+          value={telefone}
+          onChangeText={handleChange}
+          style={styles.input}
+          keyboardType="numeric"
+          maxLength={15}
         />
 
         <TextInput
@@ -144,6 +164,10 @@ const styles = StyleSheet.create({
   input: {
     marginBottom: 16,
     backgroundColor: '#FFFFFF',
+    padding: 10,
+    borderRadius: 8,
+    borderColor: '#ccc',
+    borderWidth: 1,
   },
   button: {
     marginTop: 24,
