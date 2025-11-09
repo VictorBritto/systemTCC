@@ -22,7 +22,6 @@ interface UserProfile {
   name: string;
   phone: string;
   location: string;
-  role: string;
   avatar_url?: string;
 }
 
@@ -36,7 +35,6 @@ const ProfileScreen = () => {
     name: '',
     phone: '+5519928343697',
     location: 'Interior',
-    role: 'Administrador',
     avatar_url: undefined,
   });
 
@@ -58,7 +56,6 @@ const ProfileScreen = () => {
           name: user.user_metadata?.name || 'Usuário',
           phone: user.user_metadata?.phone || prev.phone,
           location: user.user_metadata?.location || prev.location,
-          role: user.user_metadata?.role || prev.role,
           avatar_url: user.user_metadata?.avatar_url,
         }));
       }
@@ -174,7 +171,7 @@ const ProfileScreen = () => {
         errorMessage = error.message;
       }
       
-      Alert.alert('Erro no Upload ❌', errorMessage);
+      Alert.alert('Erro no Upload', errorMessage);
     } finally {
       setUploading(false);
     }
@@ -264,7 +261,6 @@ const ProfileScreen = () => {
               </TouchableOpacity>
 
               <Text style={styles.name}>{profile.name}</Text>
-              <Text style={styles.role}>{profile.role}</Text>
             </View>
 
             <View style={styles.infoSection}>
