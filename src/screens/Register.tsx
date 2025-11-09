@@ -4,54 +4,70 @@ import { TextInput, Button } from 'react-native-paper';
 import { useNavigation } from '@react-navigation/native';
 import { supabase } from '../routes/supabase';
 
-type RegisterScreenProps = {
-  onRegister: () => void;
-  onLoginRedirect: () => void;
-};
-
-export default function RegisterScreen({  }: RegisterScreenProps) {
+export default function RegisterScreen() {
   const navigation = useNavigation();
   const [nome, setNome] = useState('');
   const [email, setEmail] = useState('');
+  const [telefone, setTelefone] = useState('');
   const [password, setPassword] = useState('');
   const [password2, setPassword2] = useState('');
 
-const handleRegister = async () => {
-  if (password !== password2) {
-    Alert.alert('Erro', 'As senhas não coincidem');
-    return;
-  }
+  const formatarTelefone = (text: string) => {
+    const numeros = text.replace(/\D/g, '');
 
-  if (!nome.trim()) {
-    Alert.alert('Erro', 'Por favor, insira seu nome');
-    return;
-  }
+    if (numeros.length <= 10) {
+      return numeros
+        .replace(/(\d{2})(\d)/, '($1) $2')
+        .replace(/(\d{4})(\d)/, '$1-$2');
+    } else {
+      return numeros
+        .replace(/(\d{2})(\d)/, '($1) $2')
+        .replace(/(\d{5})(\d)/, '$1-$2');
+    }
+  };
 
-  try {
-    const { error } = await supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        data: {
-          name: nome.trim(),
-          phone: '',
-          location: '',
-          role: 'Usuário'
-        }
-      }
-    });
+  const handleChange = (text: string) => {
+    const apenasNumeros = text.replace(/\D/g, '');
+    const formatado = formatarTelefone(apenasNumeros);
+    setTelefone(formatado);
+  };
 
-    if (error) {
-      Alert.alert('Erro', error.message);
+  const handleRegister = async () => {
+    if (password !== password2) {
+      Alert.alert('Erro', 'As senhas não coincidem');
       return;
     }
 
-    Alert.alert('Sucesso', 'Conta criada com sucesso!');
-    navigation.navigate('Login' as never);
-  } catch (err: any) {
-    Alert.alert('Erro', err.message || 'Erro ao registrar');
-  }
-};
+    if (!nome.trim()) {
+      Alert.alert('Erro', 'Por favor, insira seu nome');
+      return;
+    }
+
+    try {
+      const { error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          data: {
+            name: nome.trim(),
+            phone: telefone,
+            location: '',
+            role: 'Usuário',
+          },
+        },
+      });
+
+      if (error) {
+        Alert.alert('Erro', error.message);
+        return;
+      }
+
+      Alert.alert('Sucesso', 'Conta criada com sucesso!');
+      navigation.navigate('Login' as never);
+    } catch (err: any) {
+      Alert.alert('Erro', err.message || 'Erro ao registrar');
+    }
+  };
 
   return (
     <View style={styles.container}>
@@ -61,12 +77,7 @@ const handleRegister = async () => {
           Faça seu cadastro agora mesmo
         </Text>
 
-        <TextInput
-          label="Nome"
-          value={nome}
-          onChangeText={setNome}
-          style={styles.input}
-        />
+        <TextInput label="Nome" value={nome} onChangeText={setNome} style={styles.input} />
 
         <TextInput
           label="E-mail"
@@ -75,6 +86,15 @@ const handleRegister = async () => {
           style={styles.input}
           keyboardType="email-address"
           autoCapitalize="none"
+        />
+
+        <TextInput
+          label="Telefone"
+          value={telefone}
+          onChangeText={handleChange}
+          style={styles.input}
+          keyboardType="numeric"
+          maxLength={15}
         />
 
         <TextInput
@@ -114,10 +134,10 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     padding: 20,
-    backgroundColor: '#D6D4CE',
+    backgroundColor: '#F0F4F8',
   },
   card: {
-    backgroundColor: '#D6D4CE',
+    backgroundColor: '#FFFFFF',
     borderRadius: 16,
     padding: 20,
     width: '100%',
@@ -131,24 +151,28 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 24,
     marginBottom: 8,
-    color: '#1E1E1E',
+    color: '#334155',
     textAlign: 'center',
   },
   subtitle: {
     fontSize: 16,
     marginBottom: 24,
-    color: '#1E1E1E',
+    color: '#64748B',
     textAlign: 'center',
     opacity: 0.9,
   },
   input: {
     marginBottom: 16,
-    backgroundColor: '#E0E0E0',
+    backgroundColor: '#FFFFFF',
+    padding: 10,
+    borderRadius: 8,
+    borderColor: '#ccc',
+    borderWidth: 1,
   },
   button: {
     marginTop: 24,
     marginBottom: 16,
-    backgroundColor: '#E63C3A',
+    backgroundColor: '#7DD3FC',
     borderRadius: 8,
     elevation: 2,
     shadowColor: '#000',
@@ -157,7 +181,7 @@ const styles = StyleSheet.create({
     shadowRadius: 2.22,
   },
   login: {
-    color: '#1E1E1E',
+    color: '#334155',
     textAlign: 'center',
     marginTop: 16,
     fontSize: 14,

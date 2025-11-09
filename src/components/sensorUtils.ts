@@ -1,5 +1,5 @@
 // sensorUtils.ts
-import { supabase } from '../routes/supabase'; // ajuste o caminho
+import { supabase } from '../routes/supabase';
 import * as Notifications from 'expo-notifications';
 
 export const generateRandomTemperature = (): string => {
@@ -38,7 +38,7 @@ export const insertMultipleRandomData = async (count: number = 10) => {
   
   for (let i = 0; i < count; i++) {
     const temperatura = parseFloat(generateRandomTemperature());
-    const data_hora = new Date(Date.now() - (i * 24 * 60 * 60 * 1000)); // Cada registro com 1 dia de diferença
+    const data_hora = new Date(Date.now() - (i * 24 * 60 * 60 * 1000));
     
     randomData.push({
       temperatura,

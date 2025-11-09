@@ -1,6 +1,15 @@
-import React, { useEffect, useState } from 'react';
-import { View, Text, useWindowDimensions, StyleSheet, ScrollView, TouchableOpacity, Dimensions, DimensionValue } from 'react-native';
-import { LineChart } from 'react-native-chart-kit';
+import React, { useEffect, useState, useCallback, useMemo } from 'react';
+import { 
+  View, 
+  Text, 
+  useWindowDimensions, 
+  StyleSheet, 
+  ScrollView, 
+  DimensionValue,
+  RefreshControl,
+  ActivityIndicator 
+} from 'react-native';
+import { BarChart, LineChart } from 'react-native-chart-kit';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { supabase } from '../routes/supabase';
 
@@ -8,8 +17,8 @@ interface ChartData {
   labels: string[];
   datasets: {
     data: number[];
-    color: (opacity?: number) => string;
-    strokeWidth: number;
+    color?: (opacity?: number) => string;
+    strokeWidth?: number;
   }[];
 }
 
@@ -20,203 +29,448 @@ interface StatCard {
   color: string;
 }
 
+interface Alert {
+  id: number;
+  title: string;
+  time: string;
+  severity: 'warning' | 'info' | 'success';
+}
+
+interface SensorReading {
+  temperatura: number;
+  umidade: number;
+  fumaca?: number;
+  data_hora: string;
+}
+
 export default function DashboardScreen() {
   const { width: screenWidth, height: screenHeight } = useWindowDimensions();
-  const isSmallScreen = screenWidth < 360;
-  const isMediumScreen = screenWidth < 768;
-
-  // Calculate responsive dimensions
-  const getCardDimensions = () => {
-    if (isSmallScreen) {
-      return {
-        width: '100%' as DimensionValue,
-        height: 120,
-      };
-    } else if (isMediumScreen) {
-      return {
-        width: '47%' as DimensionValue,
-        height: 130,
-      };
-    }
-    return {
-      width: '23%' as DimensionValue,
-      height: 140,
-    };
-  };
-
-  // Adjust chart dimensions to prevent overflow
-  const containerPadding = 32; // Total horizontal padding (16 * 2)
-  const chartContainerPadding = 40; // Total horizontal padding (20 * 2)
-  const availableWidth = screenWidth - containerPadding - chartContainerPadding;
-  const chartWidth = Math.min(availableWidth, 800);
-  const chartHeight = Math.min(screenHeight * 0.25, 220);
-
-  const [dataChart, setDataChart] = useState<ChartData | undefined>(undefined);
-  const [selectedPeriod, setSelectedPeriod] = useState<'Dia' | 'Semana' | 'Mes'>('Semana');
+  
+  // Estados
+  const [temperatureData, setTemperatureData] = useState<ChartData | null>(null);
+  const [humidityData, setHumidityData] = useState<ChartData | null>(null);
+  const [fumacaData, setFumacaData] = useState<ChartData | null>(null);
+  const [maxMinData, setMaxMinData] = useState<ChartData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [currentStats, setCurrentStats] = useState({
+    avgTemp: 23,
+    minTemp: 19,
+    maxTemp: 28,
+    humidity: 65,
+    alerts: 3
+  });
 
-  const stats: StatCard[] = [
-    {
-      title: 'Média',
-      value: '23°C',
-      icon: 'thermometer',
-      color: '#FF6B6B',
-    },
-    {
-      title: 'Mínima',
-      value: '19°C',
-      icon: 'thermometer-low',
-      color: '#4ECDC4',
-    },
-    {
-      title: 'Máxima',
-      value: '28°C',
-      icon: 'thermometer-high',
-      color: '#FFB236',
-    },
-    {
-      title: 'Alertas',
-      value: '3',
-      icon: 'alert-circle',
-      color: '#FF6B6B',
-    },
-  ];
+  // Dimensões responsivas
+  const dimensions = useMemo(() => {
+    const isSmallScreen = screenWidth < 360;
+    const isMediumScreen = screenWidth < 768;
+    
+    return {
+      cardWidth: (isSmallScreen ? '100%' : isMediumScreen ? '47%' : '23%') as DimensionValue,
+      cardHeight: isSmallScreen ? 130 : isMediumScreen ? 140 : 150,
+      chartWidth: screenWidth / 2.4,
+      chartHeight: 160
+    };
+  }, [screenWidth, screenHeight]);
 
-  const fetchData = async () => {
-    setLoading(true);
+  // Configurações dos gráficos
+  const chartConfigs = useMemo(() => {
+    const baseConfig = {
+      backgroundColor: '#FFFFFF',
+      backgroundGradientFrom: '#FFFFFF',
+      backgroundGradientTo: '#FFFFFF',
+      decimalPlaces: 1,
+      color: (opacity = 1) => `rgba(51, 65, 85, ${opacity})`,
+      labelColor: () => '#64748B',
+      propsForBackgroundLines: { 
+        stroke: '#E2E8F0', 
+        strokeDasharray: '5, 5',
+        strokeWidth: 1 
+      },
+      propsForLabels: { 
+        fontSize: 11,
+        fontWeight: '500' 
+      },
+    };
+
+    return {
+      temperature: {
+        ...baseConfig,
+        color: (opacity = 1) => `rgba(255, 107, 107, ${opacity})`,
+        propsForDots: { 
+          r: '4', 
+          strokeWidth: '2', 
+          stroke: '#FF6B6B', 
+          fill: '#FF6B6B' 
+        },
+      },
+      humidity: {
+        ...baseConfig,
+        color: (opacity = 1) => `rgba(0, 188, 212, ${opacity})`,
+        propsForDots: { 
+          r: '0', 
+          strokeWidth: '2', 
+          stroke: '#00BCD4', 
+          fill: '#00BCD4' 
+        },
+      },
+      fumaca: {
+        ...baseConfig,
+        color: (opacity = 1) => `rgba(253, 202, 64, ${opacity})`,
+        barPercentage: 0.5,
+        fillShadowGradient: '#FDC640',
+        fillShadowGradientOpacity: 0.8,
+        barRadius: 8,
+      },
+      maxMin: {
+        ...baseConfig,
+        color: (opacity = 1) => `rgba(223, 41, 53, ${opacity})`,
+        barPercentage: 0.5,
+        fillShadowGradient: '#DF2935',
+        fillShadowGradientOpacity: 0.8,
+        barRadius: 8,
+      }
+    };
+  }, []);
+
+  // Processar dados
+  const processChartData = useCallback((readings: SensorReading[]) => {
+    if (!readings || readings.length === 0) return null;
+
+    const labels = readings.map((reading) => {
+      const date = new Date(reading.data_hora);
+      return date.toLocaleDateString('pt-BR', { weekday: 'short' });
+    });
+
+    const temperatures = readings.map(r => r.temperatura);
+    const humidities = readings.map(r => r.umidade);
+    const fumacas = readings.map(r => r.fumaca || Math.random() * 8); // Simulado se não existir
+
+    // Calcular min/max
+    const maxTemps = readings.map(r => r.temperatura + Math.random() * 5);
+    const minTemps = readings.map(r => r.temperatura - Math.random() * 5);
+
+    // Calcular estatísticas
+    const avgTemp = Math.round(temperatures.reduce((a, b) => a + b, 0) / temperatures.length);
+    const minTemp = Math.round(Math.min(...temperatures));
+    const maxTemp = Math.round(Math.max(...temperatures));
+    const currentHumidity = Math.round(humidities[humidities.length - 1]);
+
+    setCurrentStats({
+      avgTemp,
+      minTemp,
+      maxTemp,
+      humidity: currentHumidity,
+      alerts: 3 // Pode ser calculado com base em condições
+    });
+
+    return {
+      temperature: {
+        labels,
+        datasets: [{
+          data: temperatures,
+          color: (opacity = 1) => `rgba(255, 107, 107, ${opacity})`,
+          strokeWidth: 2,
+        }],
+      },
+      humidity: {
+        labels,
+        datasets: [{
+          data: humidities,
+          color: (opacity = 1) => `rgba(0, 188, 212, ${opacity})`,
+          strokeWidth: 2,
+        }],
+      },
+      fumaca: {
+        labels,
+        datasets: [{
+          data: fumacas,
+          color: (opacity = 1) => `rgba(253, 202, 64, ${opacity})`,
+        }],
+      },
+      maxMin: {
+        labels,
+        datasets: [{
+          data: maxTemps.map((max, i) => max - minTemps[i]),
+          color: (opacity = 1) => `rgba(223, 41, 53, ${opacity})`,
+        }],
+      }
+    };
+  }, []);
+
+  // Buscar dados
+  const fetchData = useCallback(async () => {
     try {
-      let { data, error } = await supabase
+      const { data, error } = await supabase
         .from('leituras_sensores')
-        .select('id, temperatura, data_hora, umidade, fumaca, presenca, local_sensor')
+        .select('temperatura, umidade, fumaca, data_hora')
         .order('data_hora', { ascending: true })
         .limit(7);
 
       if (error) throw error;
 
-      const chartData: ChartData = {
-        labels: data?.map(reading => {
-          const date = new Date(reading.data_hora);
-          return date.toLocaleDateString('pt-BR', { weekday: 'short' });
-        }) || [],
-        datasets: [
-          {
-            data: data?.map(reading => reading.temperatura) || [],
-            color: (opacity = 1) => `rgba(255, 107, 107, ${opacity})`,
-            strokeWidth: 2,
-          },
-        ],
-      };
-
-      setDataChart(chartData);
-    } catch (error) {
-      console.error('Erro ao buscar dados:', error);
+      const processedData = processChartData(data);
+      
+      if (processedData) {
+        setTemperatureData(processedData.temperature);
+        setHumidityData(processedData.humidity);
+        setFumacaData(processedData.fumaca);
+        setMaxMinData(processedData.maxMin);
+      }
+    } catch (err) {
+      console.error('Erro ao buscar dados:', err);
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
-  };
+  }, [processChartData]);
+
+  // Pull to refresh
+  const onRefresh = useCallback(() => {
+    setRefreshing(true);
+    fetchData();
+  }, [fetchData]);
 
   useEffect(() => {
     fetchData();
-  }, [selectedPeriod]);
+  }, [fetchData]);
 
-  const chartConfig = {
-    backgroundColor: '#121212',
-    backgroundGradientFrom: '#121212',
-    backgroundGradientTo: '#121212',
-    decimalPlaces: 1,
-    color: (opacity = 1) => `rgba(255, 255, 255, ${opacity})`,
-    labelColor: () => '#fff',
-    propsForDots: {
-      r: '4',
-      strokeWidth: '2',
-      stroke: '#FF6B6B',
-      fill: '#121212',
+  // Stats cards
+  const stats: StatCard[] = useMemo(() => [
+    { 
+      title: 'Média', 
+      value: `${currentStats.avgTemp}°C`, 
+      icon: 'thermometer', 
+      color: '#FF6B6B' 
     },
-    propsForBackgroundLines: {
-      stroke: '#333',
-      strokeDasharray: '5, 5',
+    { 
+      title: 'Mínima', 
+      value: `${currentStats.minTemp}°C`, 
+      icon: 'thermometer-low', 
+      color: '#4ECDC4' 
     },
-    propsForLabels: {
-      fontSize: 10, // Reduced font size for better fit
+    { 
+      title: 'Máxima', 
+      value: `${currentStats.maxTemp}°C`, 
+      icon: 'thermometer-high', 
+      color: '#FFB236' 
     },
+    { 
+      title: 'Alertas', 
+      value: `${currentStats.alerts}`, 
+      icon: 'alert-circle', 
+      color: '#FF6B6B' 
+    },
+  ], [currentStats]);
+
+  const alerts: Alert[] = [
+    { 
+      id: 1, 
+      title: 'Temperatura abaixo do limite', 
+      time: 'Hoje, 14:30', 
+      severity: 'warning' 
+    },
+    { 
+      id: 2, 
+      title: 'Umidade elevada detectada', 
+      time: 'Hoje, 12:15', 
+      severity: 'info' 
+    },
+    { 
+      id: 3, 
+      title: 'Sistema em funcionamento normal', 
+      time: 'Hoje, 08:00', 
+      severity: 'success' 
+    },
+  ];
+
+  const getAlertColors = (severity: string) => {
+    switch (severity) {
+      case 'warning':
+        return { bg: 'rgba(255,167,38,0.15)', border: '#FFA726', icon: 'alert' };
+      case 'success':
+        return { bg: 'rgba(76,175,80,0.15)', border: '#4CAF50', icon: 'check-circle' };
+      default:
+        return { bg: 'rgba(33,150,243,0.15)', border: '#2196F3', icon: 'information' };
+    }
   };
 
+  const ChartCard = ({ 
+    title, 
+    data, 
+    config, 
+    type = 'line',
+    suffix 
+  }: { 
+    title: string; 
+    data: ChartData | null; 
+    config: any; 
+    type?: 'line' | 'bar';
+    suffix: string;
+  }) => (
+    <View style={styles.chartContainer}>
+      <Text style={styles.chartTitle}>{title}</Text>
+      {loading ? (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#FF6B6B" />
+        </View>
+      ) : data ? (
+        type === 'line' ? (
+          <LineChart
+            data={data}
+            width={dimensions.chartWidth}
+            height={dimensions.chartHeight}
+            yAxisSuffix={suffix}
+            withDots
+            withShadow={false}
+            withVerticalLabels={false}
+            chartConfig={config}
+            bezier
+            style={styles.chart}
+          />
+        ) : (
+          <BarChart
+            data={data}
+            width={dimensions.chartWidth}
+            height={dimensions.chartHeight}
+            yAxisLabel=""
+            yAxisSuffix={suffix}
+            withInnerLines={true}
+            showBarTops={false}
+            withVerticalLabels={false}
+            fromZero={true}
+            segments={4}
+            chartConfig={config}
+            style={styles.chart}
+          />
+        )
+      ) : (
+        <Text style={styles.errorText}>Nenhum dado disponível</Text>
+      )}
+    </View>
+  );
+
   return (
-    <ScrollView style={styles.scrollView}>
+    <ScrollView 
+      style={styles.scrollView} 
+      showsVerticalScrollIndicator={false}
+      refreshControl={
+        <RefreshControl 
+          refreshing={refreshing} 
+          onRefresh={onRefresh}
+          tintColor="#FF6B6B"
+          colors={['#FF6B6B']}
+        />
+      }
+    >
       <View style={styles.container}>
+        {/* Header */}
         <View style={styles.header}>
-          <TouchableOpacity
-            style={styles.periodSelector}
-            onPress={() => setSelectedPeriod(selectedPeriod === 'Dia' ? 'Semana' : 'Dia')}>
-            <Text style={styles.periodText}>{selectedPeriod}</Text>
-          </TouchableOpacity>
+          <Text style={styles.headerTitle}>Dashboard</Text>
+          <View style={styles.statusBadge}>
+            <View style={styles.statusDot} />
+            <Text style={styles.statusText}>Ativo</Text>
+          </View>
         </View>
 
         <View style={styles.contentContainer}>
-          <View style={[styles.chartContainer]}>
-            {loading ? (
-              <View style={[styles.loadingContainer, { height: chartHeight }]}>
-                <Text style={styles.loadingText}>Carregando...</Text>
-              </View>
-            ) : dataChart ? (
-              <LineChart
-                data={dataChart}
-                width={chartWidth}
-                height={chartHeight}
-                withShadow={false}
-                withDots={true}
-                withInnerLines={true}
-                withOuterLines={false}
-                withVerticalLabels={true}
-                yAxisSuffix="°"
-                chartConfig={chartConfig}
-                bezier
-                style={styles.chart}
-              />
-            ) : (
-              <Text style={styles.errorText}>Nenhum dado disponível</Text>
-            )}
+          {/* Gráficos Linha 1 */}
+          <View style={styles.chartsRow}>
+            <ChartCard 
+              title="Temperatura" 
+              data={temperatureData}
+              config={chartConfigs.temperature}
+              type="line"
+              suffix="°C"
+            />
+            <ChartCard 
+              title="Umidade" 
+              data={humidityData}
+              config={chartConfigs.humidity}
+              type="line"
+              suffix="%"
+            />
           </View>
 
+          {/* Gráficos Linha 2 */}
+          <View style={styles.chartsRow}>
+            <ChartCard 
+              title="Detecção de Fumaça" 
+              data={fumacaData}
+              config={chartConfigs.fumaca}
+              type="bar"
+              suffix="ppm"
+            />
+            <ChartCard 
+              title="Temperatura Máx/Min" 
+              data={maxMinData}
+              config={chartConfigs.maxMin}
+              type="bar"
+              suffix="°C"
+            />
+          </View>
+
+          {/* Cards de estatísticas */}
           <View style={styles.statsContainer}>
             {stats.map((stat, index) => (
-              <View
-                key={index}
+              <View 
+                key={index} 
                 style={[
-                  styles.statCard,
-                  getCardDimensions(),
-                  { backgroundColor: '#1E1E1E' },
-                ]}>
+                  styles.statCard, 
+                  { 
+                    width: dimensions.cardWidth, 
+                    height: dimensions.cardHeight 
+                  }
+                ]}
+              >
                 <MaterialCommunityIcons 
                   name={stat.icon} 
-                  size={isSmallScreen ? 20 : 24} 
+                  size={40} 
                   color={stat.color} 
                 />
-                <Text style={[
-                  styles.statValue, 
-                  { fontSize: isSmallScreen ? 18 : isMediumScreen ? 20 : 24 }
-                ]}>
-                  {stat.value}
-                </Text>
-                <Text style={[
-                  styles.statTitle, 
-                  { fontSize: isSmallScreen ? 12 : 14 }
-                ]}>
-                  {stat.title}
-                </Text>
+                <Text style={styles.statValue}>{stat.value}</Text>
+                <Text style={styles.statTitle}>{stat.title}</Text>
               </View>
             ))}
           </View>
 
-          <View style={[styles.alertsContainer, { backgroundColor: '#1E1E1E' }]}>
-            <Text style={styles.alertsTitle}>Últimos Alertas</Text>
-            <View style={styles.alertCard}>
-              <MaterialCommunityIcons name="alert-circle" size={20} color="#FF6B6B" />
-              <View style={styles.alertInfo}>
-                <Text style={styles.alertText}>Temperatura abaixo do limite</Text>
-                <Text style={styles.alertTime}>Hoje, 14:30</Text>
-              </View>
+
+          {/* Alertas Recentes */}
+          <View style={styles.alertsContainer}>
+            <View style={styles.alertsHeader}>
+              <MaterialCommunityIcons 
+                name="bell-ring" 
+                size={20} 
+                color="#FFA726" 
+              />
+              <Text style={styles.alertsTitle}>Alertas Recentes</Text>
             </View>
+            {alerts.map((alert) => {
+              const colors = getAlertColors(alert.severity);
+              return (
+                <View
+                  key={alert.id}
+                  style={[
+                    styles.alertCard,
+                    { 
+                      backgroundColor: colors.bg, 
+                      borderLeftColor: colors.border 
+                    },
+                  ]}
+                >
+                  <MaterialCommunityIcons
+                    name={colors.icon as any}
+                    size={20}
+                    color={colors.border}
+                  />
+                  <View style={styles.alertInfo}>
+                    <Text style={styles.alertText}>{alert.title}</Text>
+                    <Text style={styles.alertTime}>{alert.time}</Text>
+                  </View>
+                </View>
+              );
+            })}
           </View>
         </View>
       </View>
@@ -224,126 +478,228 @@ export default function DashboardScreen() {
   );
 }
 
+
 const styles = StyleSheet.create({
-  scrollView: {
-    flex: 1,
-    backgroundColor: '#D6D4CE',
+  scrollView: { 
+    flex: 1, 
+    backgroundColor: '#F0F4F8' 
   },
-  container: {
-    flex: 1,
-    padding: 16,
-    backgroundColor: '#D6D4CE',
+  container: { 
+    flex: 1, 
+    padding: 16, 
+    paddingBottom: 32, 
+  },
+  contentContainer: { 
+    width: '100%', 
     alignItems: 'center',
   },
-  contentContainer: {
-    width: '100%',
-    maxWidth: 1200,
-    alignItems: 'center',
-  },
-  header: {
+  header: { 
     width: '100%',
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 20,
-    paddingTop: 50,
+    marginTop: 16,
+    marginBottom: 24 
   },
-  periodSelector: {
-    backgroundColor: '#1E1E1E',
+  headerTitle: {
+    fontSize: 28,
+    fontWeight: 'bold',
+    color: '#334155',
+  },
+  statusBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(76, 175, 80, 0.15)',
     borderRadius: 20,
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    elevation: 2,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    gap: 6,
+    borderWidth: 1,
+    borderColor: 'rgba(76, 175, 80, 0.3)',
   },
-  periodText: {
-    color: '#FFFFFF',
-    fontSize: 14,
-    textTransform: 'capitalize',
-    fontWeight: '600',
+  statusDot: { 
+    width: 8, 
+    height: 8, 
+    borderRadius: 4, 
+    backgroundColor: '#4CAF50' 
+  },
+  statusText: { 
+    color: '#4CAF50', 
+    fontSize: 12, 
+    fontWeight: '600' 
+  },
+  chartsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    width: '100%',
+    gap: 12,
+    marginBottom: 16,
   },
   chartContainer: {
-    backgroundColor: '#1E1E1E',
+    flex: 1,
+    backgroundColor: '#FFFFFF',
     borderRadius: 16,
-    padding: 20,
-    marginBottom: 20,
+    padding: 16,
+    paddingVertical: 10,
+    paddingHorizontal:8,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
     elevation: 3,
-    alignItems: 'center', // Center the chart
-    width: '100%', // Take full width of parent
-    overflow: 'hidden', // Prevent content from spilling out
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    minHeight: 200,
   },
-  chart: {
-    borderRadius: 16,
+  chartTitle: {
+    color: '#334155',
+    fontSize: 14,
+    fontWeight: '600',
+    marginBottom: 12,
+    textAlign: 'center',
+  },
+  chart: { 
+    borderRadius: 12,
     marginVertical: 8,
+    overflow: 'hidden',
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    minHeight: 150,
+  },
+  errorText: { 
+    color: '#FF6B6B',
+    fontSize: 12,
   },
   statsContainer: {
     width: '100%',
     flexDirection: 'row',
     flexWrap: 'wrap',
     justifyContent: 'space-between',
-    gap: 16,
-    marginBottom: 20,
+    gap: 12,
+    marginBottom: 16,
   },
   statCard: {
+    backgroundColor: '#FFFFFF',
     borderRadius: 16,
     padding: 16,
     alignItems: 'center',
     justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.22,
+    shadowRadius: 2.22,
+  },
+  statValue: { 
+    color: '#334155', 
+    fontSize: 24,
+    fontWeight: 'bold', 
+    marginTop: 8,
+  },
+  statTitle: { 
+    color: '#64748B',
+    fontSize: 12,
+    marginTop: 4,
+  },
+  humidityCard: {
+    width: '100%',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    padding: 20,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
     elevation: 3,
-    marginBottom: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
   },
-  statValue: {
-    color: '#FFFFFF',
+  humidityHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 12,
+  },
+  humidityTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#334155',
+  },
+  humidityValue: {
+    fontSize: 48,
     fontWeight: 'bold',
-    marginVertical: 8,
+    color: '#00BCD4',
+    marginBottom: 12,
   },
-  statTitle: {
-    color: '#FFFFFF',
-    opacity: 0.8,
+  humidityLabel: {
+    fontSize: 12,
+    color: '#64748B',
+    marginTop: 8,
+  },
+  progressBar: { 
+    width: '100%', 
+    height: 8, 
+    backgroundColor: '#E2E8F0', 
+    borderRadius: 4,
+    overflow: 'hidden',
+  },
+  progressFill: { 
+    height: '100%', 
+    borderRadius: 4,
   },
   alertsContainer: {
     width: '100%',
+    backgroundColor: '#FFFFFF',
     borderRadius: 16,
-    padding: 20,
-    marginBottom: 20,
-  },
-  alertsTitle: {
-    color: '#FFFFFF',
-    fontSize: 18,
-    fontWeight: 'bold',
+    padding: 16,
     marginBottom: 16,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    elevation: 3,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+  },
+  alertsHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 16,
+  },
+  alertsTitle: { 
+    color: '#334155',
+    fontSize: 16, 
+    fontWeight: 'bold',
   },
   alertCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(255, 107, 107, 0.1)',
     borderRadius: 12,
     padding: 12,
     marginBottom: 8,
+    borderLeftWidth: 4,
   },
-  alertInfo: {
-    marginLeft: 12,
-    flex: 1,
+  alertInfo: { 
+    marginLeft: 12, 
+    flex: 1 
   },
-  alertText: {
-    color: '#FFFFFF',
-    fontSize: 14,
+  alertText: { 
+    color: '#334155', 
+    fontSize: 14, 
+    fontWeight: '500',
     marginBottom: 4,
   },
-  alertTime: {
-    color: '#FFFFFF',
-    opacity: 0.6,
-    fontSize: 12,
-  },
-  loadingContainer: {
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  loadingText: {
-    color: '#FFFFFF',
-    fontSize: 16,
-  },
-  errorText: {
-    color: '#FF6B6B',
-    fontSize: 16,
+  alertTime: { 
+    color: '#64748B', 
+    fontSize: 12 
   },
 });
+

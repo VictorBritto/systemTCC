@@ -3,7 +3,6 @@ import { View, StyleSheet, Text, TouchableOpacity, Alert } from 'react-native';
 import { TextInput, Button } from 'react-native-paper';
 import { useNavigation } from '@react-navigation/native';
 import { useFonts } from 'expo-font';
-import { FontAwesome, AntDesign } from '@expo/vector-icons';
 import { supabase } from '../routes/supabase';
 import { useGoogleAuth } from '../components/googleSignIn';
 
@@ -67,6 +66,12 @@ function LoginScreen() {
           style={styles.input}
         />
 
+        <Text
+        style={[styles.cadastro, { fontFamily: 'Poppins-Medium' }]}
+        onPress={() => navigation.navigate('Password' as never)}>
+          Esqueceu a senha?
+        </Text>
+
         <Button mode="contained" onPress={handleLogin} style={styles.button}>
           Entrar
         </Button>
@@ -80,13 +85,6 @@ function LoginScreen() {
           Não tem uma conta ainda? Cadastrar-se
         </Text>
 
-        <Text style={[styles.or]}>ou</Text>
-
-        <View style={styles.socialButtonsContainer}>
-          <TouchableOpacity style={styles.socialButton} onPress={() => promptAsync()}>
-            <AntDesign name="google" size={24} color="black" />
-          </TouchableOpacity>
-        </View>
       </View>
     </View>
   );
@@ -98,16 +96,16 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     padding: 20,
-    backgroundColor: '#D6D4CE',
+    backgroundColor: '#F0F4F8',
   },
   card: {
-    backgroundColor: '#D6D4CE',
+    backgroundColor: '#FFFFFF',
     borderRadius: 16,
     padding: 20,
     width: '100%',
     maxWidth: 400,
     elevation: 3,
-    shadowColor: '#1E1E1E',
+    shadowColor: '#E2E8F0',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.25,
     shadowRadius: 3.84,
@@ -115,24 +113,28 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 24,
     marginBottom: 8,
-    color: '#1E1E1E',
+    color: '#334155',
     textAlign: 'center',
   },
   subtitle: {
     fontSize: 16,
     marginBottom: 24,
-    color: '#1E1E1E',
+    color: '#334155',
     textAlign: 'center',
     opacity: 0.9,
   },
   input: {
     marginBottom: 16,
-    backgroundColor: '#E0E0E0',
+    backgroundColor: '#FFFFFF',
+    padding: 10,
+    borderRadius: 8,
+    borderColor: '#ccc',
+    borderWidth: 1,
   },
   button: {
     marginTop: 24,
     marginBottom: 16,
-    backgroundColor: '#E63C3A',
+    backgroundColor: '#7DD3FC',
     borderRadius: 8,
     elevation: 2,
     shadowColor: '#000',
@@ -141,7 +143,7 @@ const styles = StyleSheet.create({
     shadowRadius: 2.22,
   },
   cadastro: {
-    color: '#1E1E1E',
+    color: '#64748B',
     textAlign: 'center',
     marginTop: 16,
     fontSize: 14,
@@ -152,7 +154,7 @@ const styles = StyleSheet.create({
     marginVertical: 20,
   },
   or: {
-    color: '#1E1E1E',
+    color: '#64748B',
     textAlign: 'center',
     marginVertical: 16,
     fontSize: 14,
