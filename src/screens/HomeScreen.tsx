@@ -3,7 +3,7 @@ import { StyleSheet, Text, View, ActivityIndicator, RefreshControl, ScrollView, 
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTemperature } from '../hooks/useTemperature';
 import { useWeather } from '../hooks/useWeather';
-import { supabase } from '../routes/supabase';
+import { supabaseData } from '../routes/supabasedata';
 import Toast from 'react-native-toast-message';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
@@ -18,15 +18,20 @@ export default function HomeScreen() {
 
   const fetchSensorData = async () => {
     try {
-      const { data, error } = await supabase
+      const { data, error } = await supabaseData
         .from('leituras_sensores')
-        .select('id, temperatura, data_hora, umidade, fumaca, presenca, local_sensor')
-        .order('data_hora', { ascending: false })
-        .limit(1)
-        .single();
+        .select('id, temperatura, umidade, presenca_fumaca')
+        .order('id', { ascending: false })
+        .limit(1);
 
-      if (!error && data) {
-        setSensorData(data);
+      if (error) {
+        console.error('Erro ao buscar dados do sensor:', error);
+        console.error('Detalhes do erro:', JSON.stringify(error, null, 2));
+        return;
+      }
+
+      if (data && data.length > 0) {
+        setSensorData(data[0]);
       }
     } catch (error) {
       console.error('Erro ao buscar dados do sensor:', error);
@@ -110,7 +115,7 @@ export default function HomeScreen() {
       <View style={styles.secondPanel}>
         <View style={styles.row}>
           {[
-            { icon: 'cloud', label: 'Fumaça', value: sensorData?.fumaca ? 'Sim' : 'Não' },
+            { icon: 'cloud', label: 'Fumaça', value: sensorData?.presenca_fumaca ? 'Sim' : 'Não' },
             { icon: 'water', label: 'Umidade', value: sensorData?.umidade ? `${sensorData.umidade}%` : '---' },
             { icon: 'thermometer', label: 'Temperatura', value: `${temperatura ?? '---'}°C` },
           ].map(({ icon, label, value }, i) => (

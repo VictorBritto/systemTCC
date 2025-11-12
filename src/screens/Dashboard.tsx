@@ -11,7 +11,7 @@ import {
 } from 'react-native';
 import { BarChart, LineChart } from 'react-native-chart-kit';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { supabase } from '../routes/supabase';
+import { supabaseData } from '../routes/supabasedata';
 
 interface ChartData {
   labels: string[];
@@ -39,8 +39,8 @@ interface Alert {
 interface SensorReading {
   temperatura: number;
   umidade: number;
-  fumaca?: number;
-  data_hora: string;
+  presenca_fumaca?: number;
+  id: number;
 }
 
 export default function DashboardScreen() {
@@ -138,14 +138,14 @@ export default function DashboardScreen() {
   const processChartData = useCallback((readings: SensorReading[]) => {
     if (!readings || readings.length === 0) return null;
 
-    const labels = readings.map((reading) => {
-      const date = new Date(reading.data_hora);
-      return date.toLocaleDateString('pt-BR', { weekday: 'short' });
+    const labels = readings.map((reading, index) => {
+      // Usar índice como label temporário, já que não temos timestamp
+      return `Leitura ${index + 1}`;
     });
 
     const temperatures = readings.map(r => r.temperatura);
     const humidities = readings.map(r => r.umidade);
-    const fumacas = readings.map(r => r.fumaca || Math.random() * 8); // Simulado se não existir
+    const fumacas = readings.map(r => r.presenca_fumaca || Math.random() * 8); // Simulado se não existir
 
     // Calcular min/max
     const maxTemps = readings.map(r => r.temperatura + Math.random() * 5);
@@ -202,10 +202,10 @@ export default function DashboardScreen() {
   // Buscar dados
   const fetchData = useCallback(async () => {
     try {
-      const { data, error } = await supabase
+      const { data, error } = await supabaseData
         .from('leituras_sensores')
-        .select('temperatura, umidade, fumaca, data_hora')
-        .order('data_hora', { ascending: true })
+        .select('temperatura, umidade, presenca_fumaca, id')
+        .order('id', { ascending: true })
         .limit(7);
 
       if (error) throw error;

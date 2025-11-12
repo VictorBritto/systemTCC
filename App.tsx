@@ -1,8 +1,10 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import AppNavigator from './src/routes/AppNavigator';
 import Toast from 'react-native-toast-message';
 import * as Linking from 'expo-linking';
+import { setupNotifications } from './src/services/notifications';
+import { registerBackgroundTask } from './src/utils/backgroundTask';
 
 // Error Boundary para capturar erros
 class ErrorBoundary extends React.Component<
@@ -71,6 +73,28 @@ const styles = StyleSheet.create({
 
 
 export default function App() {
+  useEffect(() => {
+    // Inicializar notificações e background task quando o app iniciar
+    const initializeApp = async () => {
+      try {
+        // Configurar notificações
+        const notificationsEnabled = await setupNotifications();
+        if (notificationsEnabled) {
+          console.log('Notificações configuradas com sucesso');
+          
+          // Registrar tarefa em background para monitorar temperatura
+          await registerBackgroundTask();
+        } else {
+          console.warn('Permissão de notificações não concedida');
+        }
+      } catch (error) {
+        console.error('Erro ao inicializar notificações/background task:', error);
+      }
+    };
+
+    initializeApp();
+  }, []);
+
   return (
     <ErrorBoundary>
       <AppNavigator />

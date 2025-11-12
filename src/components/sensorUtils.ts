@@ -1,5 +1,5 @@
 // sensorUtils.ts
-import { supabase } from '../routes/supabase';
+import { supabaseData } from '../routes/supabasedata';
 import * as Notifications from 'expo-notifications';
 
 export const generateRandomTemperature = (): string => {
@@ -20,9 +20,9 @@ export const sendNotification = async (temp: number) => {
 export const sendSimulatedData = async () => {
   const temperaturaSimulada = generateRandomTemperature();
 
-  const { error } = await supabase
+  const { error } = await supabaseData
     .from('leituras_sensores')
-    .insert([{ temperatura: temperaturaSimulada, data_hora: new Date() }]);
+    .insert([{ temperatura: temperaturaSimulada }]);
 
   if (error) {
     console.error('Erro ao inserir dados no Supabase:', error);
@@ -35,20 +35,16 @@ export const sendSimulatedData = async () => {
 
 export const insertMultipleRandomData = async (count: number = 10) => {
   const randomData = [];
-  
+
   for (let i = 0; i < count; i++) {
     const temperatura = parseFloat(generateRandomTemperature());
-    const data_hora = new Date(Date.now() - (i * 24 * 60 * 60 * 1000));
-    
+
     randomData.push({
       temperatura,
-      data_hora: data_hora.toISOString()
     });
   }
 
-  const { error } = await supabase
-    .from('leituras_sensores')
-    .insert(randomData);
+  const { error } = await supabaseData.from('leituras_sensores').insert(randomData);
 
   if (error) {
     console.error('Erro ao inserir múltiplos dados:', error);
@@ -60,19 +56,19 @@ export const insertMultipleRandomData = async (count: number = 10) => {
 };
 
 export const fetchTemperatura = async (): Promise<number | null> => {
-  const { data, error } = await supabase
+  const { data, error } = await supabaseData
     .from('leituras_sensores')
     .select('temperatura')
-    .order('data_hora', { ascending: false })
-    .limit(1)
-    .single();
+    .order('id', { ascending: false })
+    .limit(1);
 
   if (error) {
     console.error('Erro ao buscar dados do Supabase:', error);
+    console.error('Detalhes:', JSON.stringify(error, null, 2));
     return null;
   }
 
-  const temp = data?.temperatura;
+  const temp = data && data.length > 0 ? data[0].temperatura : null;
   if (temp && temp < 19) {
     await sendNotification(temp);
   }

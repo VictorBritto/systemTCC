@@ -5,7 +5,7 @@ export interface WeatherData {
 
 export interface SensorReading {
   temperatura: number;
-  data_hora: Date;
+  timestamp: Date;
 }
 
 export interface User {
