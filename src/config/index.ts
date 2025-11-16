@@ -25,6 +25,17 @@ export const config = {
     checkInterval: 5000,
     simulationEnabled: __DEV__,
   },
+  humidity: {
+    lowerThreshold: 40,
+    upperThreshold: 80,
+    checkInterval: 5000,
+    simulationEnabled: __DEV__,
+  },
+  smoke: {
+    threshold: 100, // Exemplo: Valor acima do qual fumaça é detectada
+    checkInterval: 5000,
+    simulationEnabled: __DEV__,
+  },
   backgroundTasks: {
     minimumInterval: 15 * 60, // 15 minutes in seconds
   },

@@ -11,7 +11,8 @@ import {
 } from 'react-native';
 import { BarChart, LineChart } from 'react-native-chart-kit';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { supabaseData } from '../routes/supabasedata';
+import { supabaseData } from '../routes/supabaseData.js';
+import { config } from '../config'; // Importar a configuração
 
 interface ChartData {
   labels: string[];
@@ -40,7 +41,7 @@ interface SensorReading {
   temperatura: number;
   umidade: number;
   presenca_fumaca?: number;
-  id: number;
+  id: string; // O ID agora é uma string de timestamp
 }
 
 export default function DashboardScreen() {
@@ -53,12 +54,13 @@ export default function DashboardScreen() {
   const [maxMinData, setMaxMinData] = useState<ChartData | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [recentAlerts, setRecentAlerts] = useState<Alert[]>([]); // Novo estado para alertas recentes
   const [currentStats, setCurrentStats] = useState({
     avgTemp: 23,
     minTemp: 19,
     maxTemp: 28,
     humidity: 65,
-    alerts: 3
+    alerts: 0 // Inicializar com 0
   });
 
   // Dimensões responsivas
@@ -138,9 +140,10 @@ export default function DashboardScreen() {
   const processChartData = useCallback((readings: SensorReading[]) => {
     if (!readings || readings.length === 0) return null;
 
-    const labels = readings.map((reading, index) => {
-      // Usar índice como label temporário, já que não temos timestamp
-      return `Leitura ${index + 1}`;
+    const labels = readings.map((reading) => {
+      // Usar o ID (que é um timestamp) para labels, formatando para hora/minuto
+      const date = new Date(reading.id);
+      return `${date.getHours()}:${date.getMinutes().toString().padStart(2, '0')}`;
     });
 
     const temperatures = readings.map(r => r.temperatura);
@@ -157,12 +160,60 @@ export default function DashboardScreen() {
     const maxTemp = Math.round(Math.max(...temperatures));
     const currentHumidity = Math.round(humidities[humidities.length - 1]);
 
+    // Lógica para detectar alertas
+    const detectedAlerts: Alert[] = [];
+    const latestReading = readings[readings.length - 1]; // Usar a última leitura para alertas imediatos
+    const now = new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+
+    if (latestReading.temperatura < config.temperature.lowerThreshold) {
+      detectedAlerts.push({
+        id: Date.now() + 1, // ID único
+        title: 'Temperatura muito baixa',
+        time: `Hoje, ${now}`,
+        severity: 'warning',
+      });
+    } else if (latestReading.temperatura > config.temperature.upperThreshold) {
+      detectedAlerts.push({
+        id: Date.now() + 2, // ID único
+        title: 'Temperatura muito alta',
+        time: `Hoje, ${now}`,
+        severity: 'warning',
+      });
+    }
+
+    if (latestReading.umidade < config.humidity.lowerThreshold) {
+      detectedAlerts.push({
+        id: Date.now() + 3, // ID único
+        title: 'Umidade muito baixa',
+        time: `Hoje, ${now}`,
+        severity: 'info',
+      });
+    } else if (latestReading.umidade > config.humidity.upperThreshold) {
+      detectedAlerts.push({
+        id: Date.now() + 4, // ID único
+        title: 'Umidade muito alta',
+        time: `Hoje, ${now}`,
+        severity: 'info',
+      });
+    }
+
+    if (latestReading.presenca_fumaca !== undefined && latestReading.presenca_fumaca >= config.smoke.threshold) {
+      detectedAlerts.push({
+        id: Date.now() + 5, // ID único
+        title: 'Fumaça detectada!',
+        time: `Hoje, ${now}`,
+        severity: 'warning',
+      });
+    }
+
+    setRecentAlerts(detectedAlerts); // Atualizar o estado de alertas recentes
+
     setCurrentStats({
       avgTemp,
       minTemp,
       maxTemp,
       humidity: currentHumidity,
-      alerts: 3 // Pode ser calculado com base em condições
+      alerts: detectedAlerts.length, // Contagem real de alertas
     });
 
     return {
@@ -201,14 +252,21 @@ export default function DashboardScreen() {
 
   // Buscar dados
   const fetchData = useCallback(async () => {
+    setLoading(true); // Definir loading para true no início da busca
     try {
+      console.log('Iniciando busca de dados do Supabase...');
       const { data, error } = await supabaseData
         .from('leituras_sensores')
         .select('temperatura, umidade, presenca_fumaca, id')
         .order('id', { ascending: true })
         .limit(7);
 
-      if (error) throw error;
+      if (error) {
+        console.error('Erro ao buscar dados do Supabase:', error);
+        throw error;
+      }
+
+      console.log('Dados brutos recebidos:', data);
 
       const processedData = processChartData(data);
       
@@ -217,12 +275,17 @@ export default function DashboardScreen() {
         setHumidityData(processedData.humidity);
         setFumacaData(processedData.fumaca);
         setMaxMinData(processedData.maxMin);
+        console.log('Dados de temperatura processados:', processedData.temperature);
+        console.log('Dados de umidade processados:', processedData.humidity);
+      } else {
+        console.log('Nenhum dado processado (dados brutos estavam vazios).');
       }
     } catch (err) {
-      console.error('Erro ao buscar dados:', err);
+      console.error('Erro geral ao buscar dados:', err);
     } finally {
       setLoading(false);
       setRefreshing(false);
+      console.log('Busca de dados finalizada.');
     }
   }, [processChartData]);
 
@@ -263,27 +326,6 @@ export default function DashboardScreen() {
       color: '#FF6B6B' 
     },
   ], [currentStats]);
-
-  const alerts: Alert[] = [
-    { 
-      id: 1, 
-      title: 'Temperatura abaixo do limite', 
-      time: 'Hoje, 14:30', 
-      severity: 'warning' 
-    },
-    { 
-      id: 2, 
-      title: 'Umidade elevada detectada', 
-      time: 'Hoje, 12:15', 
-      severity: 'info' 
-    },
-    { 
-      id: 3, 
-      title: 'Sistema em funcionamento normal', 
-      time: 'Hoje, 08:00', 
-      severity: 'success' 
-    },
-  ];
 
   const getAlertColors = (severity: string) => {
     switch (severity) {
@@ -446,7 +488,7 @@ export default function DashboardScreen() {
               />
               <Text style={styles.alertsTitle}>Alertas Recentes</Text>
             </View>
-            {alerts.map((alert) => {
+            {recentAlerts.map((alert) => {
               const colors = getAlertColors(alert.severity);
               return (
                 <View

@@ -3,7 +3,7 @@ import * as TaskManager from 'expo-task-manager';
 import * as BackgroundFetch from 'expo-background-fetch';
 import * as Notifications from 'expo-notifications';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { supabaseData } from '../routes/supabasedata';
+import { supabaseData } from '../routes/supabaseData.js';
 import { config } from '../config';
 
 const TASK_NAME = 'background-fetch-task';

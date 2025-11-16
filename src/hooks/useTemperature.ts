@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react';
 import * as Notifications from 'expo-notifications';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { supabaseData } from '../routes/supabasedata';
+import { supabaseData } from '../routes/supabaseData.js';
 import { config } from '../config';
+import { SensorReading } from '../types';
 
 const LAST_NOTIFICATION_KEY = 'last_temperature_notification';
 const NOTIFICATION_COOLDOWN = 5 * 60 * 1000; // 5 minutos em milissegundos
@@ -52,7 +53,7 @@ const checkAndNotify = async (temperatura: number) => {
       } else if (temperatura > upperThreshold) {
         await Notifications.scheduleNotificationAsync({
           content: {
-            title: '🔥 Alerta de Temperatura Alta',
+            title: 'Alerta de Temperatura Alta',
             body: `A temperatura atual é de ${temperatura.toFixed(1)}°C, acima do limite máximo de ${upperThreshold}°C!`,
             sound: true,
             priority: Notifications.AndroidNotificationPriority.HIGH,
@@ -121,20 +122,19 @@ export const useTemperature = () => {
   useEffect(() => {
     fetchTemperatura();
 
-    // Set up real-time subscription
     console.log('Configurando subscription em tempo real...');
     const subscription = supabaseData
       .channel('leituras_sensores_changes')
       .on(
         'postgres_changes',
         {
-          event: 'INSERT',
+          event: '*',
           schema: 'public',
           table: 'leituras_sensores',
         },
         async (payload) => {
           console.log('Nova leitura recebida:', payload.new);
-          const newTemp = payload.new.temperatura;
+          const newTemp = (payload.new as SensorReading).temperatura;
           setTemperatura(newTemp);
           // Verificar e notificar quando receber nova leitura
           await checkAndNotify(newTemp);
@@ -144,7 +144,6 @@ export const useTemperature = () => {
         console.log('Status da subscription:', status);
       });
 
-    // Fetch updates every 30 seconds as backup
     const interval = setInterval(() => {
       console.log('Atualização de backup...');
       fetchTemperatura();

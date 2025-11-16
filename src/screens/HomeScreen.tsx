@@ -3,7 +3,7 @@ import { StyleSheet, Text, View, ActivityIndicator, RefreshControl, ScrollView, 
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTemperature } from '../hooks/useTemperature';
 import { useWeather } from '../hooks/useWeather';
-import { supabaseData } from '../routes/supabasedata';
+import { supabaseData } from '../routes/supabaseData.js';
 import Toast from 'react-native-toast-message';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
@@ -61,7 +61,30 @@ export default function HomeScreen() {
 
   showWelcomeToast();
   fetchSensorData();
-}, []);
+
+    // Set up real-time subscription for sensor data
+    const subscription = supabaseData
+      .channel('sensor_data_changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'leituras_sensores',
+        },
+        (payload) => {
+          setSensorData(payload.new);
+        }
+      )
+      .subscribe(() => {
+
+      });
+
+    // Cleanup subscription on component unmount
+    return () => {
+      subscription.unsubscribe();
+    };
+  }, []);
 
   const onRefresh = async () => {
     setRefreshing(true);
@@ -115,7 +138,7 @@ export default function HomeScreen() {
       <View style={styles.secondPanel}>
         <View style={styles.row}>
           {[
-            { icon: 'cloud', label: 'Fumaça', value: sensorData?.presenca_fumaca ? 'Sim' : 'Não' },
+            { icon: 'cloud', label: 'Fumaça', value: (sensorData?.presenca_fumaca || 0) > 150 ? 'Sim' : 'Não' },
             { icon: 'water', label: 'Umidade', value: sensorData?.umidade ? `${sensorData.umidade}%` : '---' },
             { icon: 'thermometer', label: 'Temperatura', value: `${temperatura ?? '---'}°C` },
           ].map(({ icon, label, value }, i) => (

@@ -1,9 +1,13 @@
 // sensorUtils.ts
-import { supabaseData } from '../routes/supabasedata';
+import { supabaseData } from '../routes/supabaseData.js';
 import * as Notifications from 'expo-notifications';
 
 export const generateRandomTemperature = (): string => {
   return (Math.random() * (30 - 10) + 10).toFixed(2);
+};
+
+export const generateRandomHumidity = (): string => {
+  return (Math.random() * (90 - 30) + 30).toFixed(2);
 };
 
 export const sendNotification = async (temp: number) => {
@@ -19,10 +23,11 @@ export const sendNotification = async (temp: number) => {
 
 export const sendSimulatedData = async () => {
   const temperaturaSimulada = generateRandomTemperature();
+  const umidadeSimulada = generateRandomHumidity(); // Gerar umidade simulada
 
   const { error } = await supabaseData
     .from('leituras_sensores')
-    .insert([{ temperatura: temperaturaSimulada }]);
+    .insert([{ temperatura: temperaturaSimulada, umidade: umidadeSimulada }]); // Inserir umidade também
 
   if (error) {
     console.error('Erro ao inserir dados no Supabase:', error);
@@ -38,9 +43,11 @@ export const insertMultipleRandomData = async (count: number = 10) => {
 
   for (let i = 0; i < count; i++) {
     const temperatura = parseFloat(generateRandomTemperature());
+    const umidade = parseFloat(generateRandomHumidity()); // Gerar umidade para cada registro
 
     randomData.push({
       temperatura,
+      umidade, // Incluir umidade
     });
   }
 
