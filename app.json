@@ -1,9 +1,9 @@
 {
   "expo": {
-    "name": "my-expo-app",
-    "slug": "my-expo-app",
+    "name": "NexGuard",
+    "slug": "NexGuard",
     "version": "1.0.2",
-    "scheme": "myexpoapp",
+    "scheme": "NexGuard",
     "web": {
       "favicon": "./assets/favicon.png"
     },
@@ -39,9 +39,7 @@
       },
       "package": "com.victxr153.myexpoapp",
       "versionCode": 2,
-      "permissions": [
-        "RECEIVE_BOOT_COMPLETED"
-      ]
+      "permissions": ["RECEIVE_BOOT_COMPLETED"]
     },
     "notification": {
       "icon": "./assets/icon.png",

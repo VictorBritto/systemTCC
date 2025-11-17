@@ -6,6 +6,7 @@ export const useWeather = () => {
   const [weather, setWeather] = useState<WeatherData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [lastRefresh, setLastRefresh] = useState<Date | null>(null);
 
   const fetchWeather = async () => {
     try {
@@ -13,8 +14,9 @@ export const useWeather = () => {
       setError(null);
       const data = await getWeather();
       setWeather(data);
-    } catch (error) {
-      setError('Falha ao buscar dados do clima');
+      setLastRefresh(new Date());
+    } catch (error: any) {
+      setError(error?.message || 'Falha ao buscar dados do clima');
       console.error('Error in useWeather:', error);
     } finally {
       setLoading(false);
@@ -29,6 +31,7 @@ export const useWeather = () => {
     weather,
     loading,
     error,
+    lastRefresh,
     refetch: fetchWeather,
   };
 }; 

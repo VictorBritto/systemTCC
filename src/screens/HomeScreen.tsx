@@ -12,9 +12,11 @@ const windowWidth = Dimensions.get('window').width;
 
 export default function HomeScreen() {
   const { temperatura, loading: tempLoading, error: tempError, refetch: refetchTemp } = useTemperature();
-  const { weather, loading: weatherLoading, error: weatherError, refetch: refetchWeather } = useWeather();
+  const { weather, loading: weatherLoading, error: weatherError, lastRefresh, refetch: refetchWeather } = useWeather();
   const [refreshing, setRefreshing] = useState(false);
   const [sensorData, setSensorData] = useState<any>(null);
+  const [previousSmokePresence, setPreviousSmokePresence] = useState<boolean | null>(null);
+  const [previousSensorData, setPreviousSensorData] = useState<any>(null);
 
   const fetchSensorData = async () => {
     try {
@@ -32,6 +34,8 @@ export default function HomeScreen() {
 
       if (data && data.length > 0) {
         setSensorData(data[0]);
+        setPreviousSmokePresence((data[0].presenca_fumaca || 0) > 150);
+        setPreviousSensorData(data[0]);
       }
     } catch (error) {
       console.error('Erro ao buscar dados do sensor:', error);
@@ -86,20 +90,46 @@ export default function HomeScreen() {
     };
   }, []);
 
+  useEffect(() => {
+    if (sensorData !== null && JSON.stringify(sensorData) !== JSON.stringify(previousSensorData)) {
+      // Smoke presence notification logic
+      const currentSmokePresence = (sensorData.presenca_fumaca || 0) > 150;
+
+      if (previousSmokePresence !== null && currentSmokePresence && !previousSmokePresence) {
+        Toast.show({
+          type: 'error',
+          text1: 'Fumaça detectada!',
+          text2: 'O sensor de fumaça detectou presença de fumaça. Verifique o ambiente.',
+          position: 'top',
+          visibilityTime: 5000,
+          autoHide: true,
+          topOffset: 60,
+        });
+      }
+      setPreviousSmokePresence(currentSmokePresence);
+
+      // General sensor data change notification
+      if (previousSensorData !== null) {
+        Toast.show({
+          type: 'info',
+          text1: 'Atualização de Sensores',
+          text2: `Temperatura: ${sensorData.temperatura}°C, Umidade: ${sensorData.umidade}%`,
+          position: 'top',
+          visibilityTime: 3000,
+          autoHide: true,
+          topOffset: 60,
+        });
+      }
+
+      setPreviousSensorData(sensorData);
+    }
+  }, [sensorData, previousSensorData]);
+
   const onRefresh = async () => {
     setRefreshing(true);
     await Promise.all([refetchTemp(), refetchWeather(), fetchSensorData()]);
     setRefreshing(false);
   };
-
-  if (tempError || weatherError) {
-    return (
-      <View style={styles.container}>
-        <MaterialCommunityIcons name="alert-outline" size={50} color="#FF6B6B" />
-        <Text style={styles.errorText}>{tempError || weatherError}</Text>
-      </View>
-    );
-  }
 
   const loading = tempLoading || weatherLoading;
 
@@ -123,6 +153,19 @@ export default function HomeScreen() {
         </View>
         {loading ? (
           <ActivityIndicator size="large" color="#334155" />
+        ) : tempError ? (
+          <View style={styles.errorContainer}>
+            <MaterialCommunityIcons name="alert-outline" size={24} color="#FF6B6B" />
+            <Text style={[styles.temperature, styles.errorText]}>
+              {tempError}
+            </Text>
+            <TouchableOpacity 
+              onPress={refetchTemp}
+              style={styles.retryButton}
+            >
+              <Text style={styles.retryButtonText}>Tentar novamente</Text>
+            </TouchableOpacity>
+          </View>
         ) : (
           <Text style={styles.temperature}>
             {temperatura !== null ? `${temperatura}°` : 'Carregando...'}
@@ -152,13 +195,39 @@ export default function HomeScreen() {
 
         <View style={styles.row}>
           <View style={styles.infoRow}>
-            <Text style={styles.weatherValue}>
-              {weather?.temp ? `${weather.temp.toFixed(1)}°C` : '22°C'}
-            </Text>
-            <Text style={styles.weatherDescription}>Ar livre</Text>
-            <Text style={[styles.weatherDescription, styles.weatherSubtext]}>
-              {weather?.description || '---'}
-            </Text>
+            {weatherError ? (
+              <>
+                <MaterialCommunityIcons name="alert-outline" size={24} color="#FF6B6B" />
+                <Text style={[styles.weatherDescription, styles.errorText]}>
+                  {weatherError}
+                </Text>
+                <TouchableOpacity 
+                  onPress={refetchWeather}
+                  style={styles.retryButton}
+                >
+                  <Text style={styles.retryButtonText}>Tentar novamente</Text>
+                </TouchableOpacity>
+              </>
+            ) : (
+              <>
+                <Text style={styles.weatherValue}>
+                  {weather?.temp ? `${weather.temp.toFixed(1)}°C` : '22°C'}
+                </Text>
+                <Text style={styles.weatherDescription}>Ar livre</Text>
+                <Text style={[styles.weatherDescription, styles.weatherSubtext]}>
+                  {weather?.description || '---'}
+                </Text>
+                {lastRefresh && (
+                  <Text style={[styles.weatherDescription, styles.timestampText]}>
+                    Atualizado: {lastRefresh.toLocaleTimeString('pt-BR', { 
+                      hour: '2-digit', 
+                      minute: '2-digit',
+                      second: '2-digit'
+                    })}
+                  </Text>
+                )}
+              </>
+            )}
           </View>
         </View>
       </View>
@@ -285,13 +354,32 @@ const styles = StyleSheet.create({
     marginTop: 4,
     color: '#64748B',
   },
+  timestampText: {
+    fontSize: 10,
+    marginTop: 8,
+    color: '#94A3B8',
+    fontStyle: 'italic',
+  },
+  errorContainer: {
+    alignItems: 'center',
+    gap: 8,
+  },
   errorText: {
-    color: '#7DD3FC',
-    fontSize: 16,
-    marginTop: 10,
+    color: '#FF6B6B',
+    fontSize: 12,
+    marginTop: 8,
     textAlign: 'center',
-    backgroundColor: '#FFFFFF',
-    padding: 15,
-    borderRadius: 10,
+  },
+  retryButton: {
+    marginTop: 12,
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    backgroundColor: '#FF6B6B',
+    borderRadius: 8,
+  },
+  retryButtonText: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '600',
   },
 });

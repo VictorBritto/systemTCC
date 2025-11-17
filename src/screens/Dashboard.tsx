@@ -55,6 +55,7 @@ export default function DashboardScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [recentAlerts, setRecentAlerts] = useState<Alert[]>([]); // Novo estado para alertas recentes
+  const [lastRefresh, setLastRefresh] = useState<Date | null>(null);
   const [currentStats, setCurrentStats] = useState({
     avgTemp: 23,
     minTemp: 19,
@@ -285,6 +286,7 @@ export default function DashboardScreen() {
     } finally {
       setLoading(false);
       setRefreshing(false);
+      setLastRefresh(new Date());
       console.log('Busca de dados finalizada.');
     }
   }, [processChartData]);
@@ -409,7 +411,18 @@ export default function DashboardScreen() {
       <View style={styles.container}>
         {/* Header */}
         <View style={styles.header}>
-          <Text style={styles.headerTitle}>Dashboard</Text>
+          <View>
+            <Text style={styles.headerTitle}>Dashboard</Text>
+            {lastRefresh && (
+              <Text style={styles.timestampText}>
+                Atualizado: {lastRefresh.toLocaleTimeString('pt-BR', { 
+                  hour: '2-digit', 
+                  minute: '2-digit',
+                  second: '2-digit'
+                })}
+              </Text>
+            )}
+          </View>
           <View style={styles.statusBadge}>
             <View style={styles.statusDot} />
             <Text style={styles.statusText}>Ativo</Text>
@@ -547,6 +560,12 @@ const styles = StyleSheet.create({
     fontSize: 28,
     fontWeight: 'bold',
     color: '#334155',
+  },
+  timestampText: {
+    fontSize: 11,
+    marginTop: 4,
+    color: '#94A3B8',
+    fontStyle: 'italic',
   },
   statusBadge: {
     flexDirection: 'row',
