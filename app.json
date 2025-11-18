@@ -1,7 +1,7 @@
 {
   "expo": {
     "name": "NexGuard",
-    "slug": "NexGuard",
+    "slug": "my-expo-app",
     "version": "1.0.2",
     "scheme": "NexGuard",
     "web": {

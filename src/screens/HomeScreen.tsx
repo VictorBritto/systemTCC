@@ -1,18 +1,38 @@
 import React, { useState, useEffect } from 'react';
-import { StyleSheet, Text, View, ActivityIndicator, RefreshControl, ScrollView, Dimensions, TouchableOpacity } from 'react-native';
+import {
+  StyleSheet,
+  Text,
+  View,
+  ActivityIndicator,
+  RefreshControl,
+  ScrollView,
+  Dimensions,
+  TouchableOpacity,
+} from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTemperature } from '../hooks/useTemperature';
 import { useWeather } from '../hooks/useWeather';
 import { supabaseData } from '../routes/supabaseData.js';
 import Toast from 'react-native-toast-message';
+import { scheduleSmokeNotification } from '../services/notifications';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-
 
 const windowWidth = Dimensions.get('window').width;
 
 export default function HomeScreen() {
-  const { temperatura, loading: tempLoading, error: tempError, refetch: refetchTemp } = useTemperature();
-  const { weather, loading: weatherLoading, error: weatherError, lastRefresh, refetch: refetchWeather } = useWeather();
+  const {
+    temperatura,
+    loading: tempLoading,
+    error: tempError,
+    refetch: refetchTemp,
+  } = useTemperature();
+  const {
+    weather,
+    loading: weatherLoading,
+    error: weatherError,
+    lastRefresh,
+    refetch: refetchWeather,
+  } = useWeather();
   const [refreshing, setRefreshing] = useState(false);
   const [sensorData, setSensorData] = useState<any>(null);
   const [previousSmokePresence, setPreviousSmokePresence] = useState<boolean | null>(null);
@@ -34,7 +54,7 @@ export default function HomeScreen() {
 
       if (data && data.length > 0) {
         setSensorData(data[0]);
-        setPreviousSmokePresence((data[0].presenca_fumaca || 0) > 150);
+        setPreviousSmokePresence((data[0].presenca_fumaca || 0) > 100);
         setPreviousSensorData(data[0]);
       }
     } catch (error) {
@@ -43,30 +63,29 @@ export default function HomeScreen() {
   };
 
   useEffect(() => {
-  const showWelcomeToast = async () => {
-    try {
-      const hasLoggedBefore = await AsyncStorage.getItem('hasLoggedBefore');
-      if (!hasLoggedBefore) {
-        Toast.show({
-          type: 'success',
-          text1: 'Login realizado com sucesso!',
-          text2: 'Bem-vindo à plataforma 👋',
-          position: 'top',
-          visibilityTime: 3000,
-          autoHide: true,
-          bottomOffset: 60,
-        });
-        await AsyncStorage.setItem('hasLoggedBefore', 'true');
+    const showWelcomeToast = async () => {
+      try {
+        const hasLoggedBefore = await AsyncStorage.getItem('hasLoggedBefore');
+        if (!hasLoggedBefore) {
+          Toast.show({
+            type: 'success',
+            text1: 'Login realizado com sucesso!',
+            text2: 'Bem-vindo à plataforma 👋',
+            position: 'top',
+            visibilityTime: 3000,
+            autoHide: true,
+            bottomOffset: 60,
+          });
+          await AsyncStorage.setItem('hasLoggedBefore', 'true');
+        }
+      } catch (error) {
+        console.error('Erro ao exibir toast:', error);
       }
-    } catch (error) {
-      console.error('Erro ao exibir toast:', error);
-    }
-  };
+    };
 
-  showWelcomeToast();
-  fetchSensorData();
+    showWelcomeToast();
+    fetchSensorData();
 
-    // Set up real-time subscription for sensor data
     const subscription = supabaseData
       .channel('sensor_data_changes')
       .on(
@@ -80,11 +99,8 @@ export default function HomeScreen() {
           setSensorData(payload.new);
         }
       )
-      .subscribe(() => {
+      .subscribe(() => {});
 
-      });
-
-    // Cleanup subscription on component unmount
     return () => {
       subscription.unsubscribe();
     };
@@ -92,8 +108,7 @@ export default function HomeScreen() {
 
   useEffect(() => {
     if (sensorData !== null && JSON.stringify(sensorData) !== JSON.stringify(previousSensorData)) {
-      // Smoke presence notification logic
-      const currentSmokePresence = (sensorData.presenca_fumaca || 0) > 150;
+      const currentSmokePresence = (sensorData.presenca_fumaca || 0) > 100;
 
       if (previousSmokePresence !== null && currentSmokePresence && !previousSmokePresence) {
         Toast.show({
@@ -105,10 +120,23 @@ export default function HomeScreen() {
           autoHide: true,
           topOffset: 60,
         });
+        (async () => {
+          try {
+            if (sensorData?.id) {
+              const { data, error } = await supabaseData
+                .from('leituras_sensores')
+                .update({ presenca_fumaca: 100 })
+                .eq('id', sensorData.id);
+
+              if (error) console.error('Erro ao atualizar DB:', error);
+            }
+          } catch (err) {
+            console.error('Erro ao persistir detecção de fumaça:', err);
+          }
+        })();
       }
       setPreviousSmokePresence(currentSmokePresence);
 
-      // General sensor data change notification
       if (previousSensorData !== null) {
         Toast.show({
           type: 'info',
@@ -137,17 +165,11 @@ export default function HomeScreen() {
     <ScrollView
       style={styles.scrollView}
       contentContainerStyle={styles.container}
-      refreshControl={
-        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-      }
-    >
+      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}>
       <View style={styles.panel}>
         <View style={styles.panelHeader}>
           <Text style={styles.panelTitle}>Temperatura Atual</Text>
-          <TouchableOpacity 
-            onPress={refetchTemp}
-            style={styles.refreshButton}
-          >
+          <TouchableOpacity onPress={refetchTemp} style={styles.refreshButton}>
             <MaterialCommunityIcons name="refresh" size={20} color="#334155" />
           </TouchableOpacity>
         </View>
@@ -156,13 +178,8 @@ export default function HomeScreen() {
         ) : tempError ? (
           <View style={styles.errorContainer}>
             <MaterialCommunityIcons name="alert-outline" size={24} color="#FF6B6B" />
-            <Text style={[styles.temperature, styles.errorText]}>
-              {tempError}
-            </Text>
-            <TouchableOpacity 
-              onPress={refetchTemp}
-              style={styles.retryButton}
-            >
+            <Text style={[styles.temperature, styles.errorText]}>{tempError}</Text>
+            <TouchableOpacity onPress={refetchTemp} style={styles.retryButton}>
               <Text style={styles.retryButtonText}>Tentar novamente</Text>
             </TouchableOpacity>
           </View>
@@ -181,8 +198,16 @@ export default function HomeScreen() {
       <View style={styles.secondPanel}>
         <View style={styles.row}>
           {[
-            { icon: 'cloud', label: 'Fumaça', value: (sensorData?.presenca_fumaca || 0) > 150 ? 'Sim' : 'Não' },
-            { icon: 'water', label: 'Umidade', value: sensorData?.umidade ? `${sensorData.umidade}%` : '---' },
+            {
+              icon: 'cloud',
+              label: 'Fumaça',
+              value: (sensorData?.presenca_fumaca || 0) > 100 ? 'Sim' : 'Não',
+            },
+            {
+              icon: 'water',
+              label: 'Umidade',
+              value: sensorData?.umidade ? `${sensorData.umidade}%` : '---',
+            },
             { icon: 'thermometer', label: 'Temperatura', value: `${temperatura ?? '---'}°C` },
           ].map(({ icon, label, value }, i) => (
             <View key={i} style={styles.infoBox}>
@@ -198,13 +223,8 @@ export default function HomeScreen() {
             {weatherError ? (
               <>
                 <MaterialCommunityIcons name="alert-outline" size={24} color="#FF6B6B" />
-                <Text style={[styles.weatherDescription, styles.errorText]}>
-                  {weatherError}
-                </Text>
-                <TouchableOpacity 
-                  onPress={refetchWeather}
-                  style={styles.retryButton}
-                >
+                <Text style={[styles.weatherDescription, styles.errorText]}>{weatherError}</Text>
+                <TouchableOpacity onPress={refetchWeather} style={styles.retryButton}>
                   <Text style={styles.retryButtonText}>Tentar novamente</Text>
                 </TouchableOpacity>
               </>
@@ -219,10 +239,11 @@ export default function HomeScreen() {
                 </Text>
                 {lastRefresh && (
                   <Text style={[styles.weatherDescription, styles.timestampText]}>
-                    Atualizado: {lastRefresh.toLocaleTimeString('pt-BR', { 
-                      hour: '2-digit', 
+                    Atualizado:{' '}
+                    {lastRefresh.toLocaleTimeString('pt-BR', {
+                      hour: '2-digit',
                       minute: '2-digit',
-                      second: '2-digit'
+                      second: '2-digit',
                     })}
                   </Text>
                 )}

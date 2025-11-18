@@ -1,18 +1,18 @@
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
-import { 
-  View, 
-  Text, 
-  useWindowDimensions, 
-  StyleSheet, 
-  ScrollView, 
+import {
+  View,
+  Text,
+  useWindowDimensions,
+  StyleSheet,
+  ScrollView,
   DimensionValue,
   RefreshControl,
-  ActivityIndicator 
+  ActivityIndicator,
 } from 'react-native';
 import { BarChart, LineChart } from 'react-native-chart-kit';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { supabaseData } from '../routes/supabaseData.js';
-import { config } from '../config'; // Importar a configuração
+import { config } from '../config';
 
 interface ChartData {
   labels: string[];
@@ -41,12 +41,12 @@ interface SensorReading {
   temperatura: number;
   umidade: number;
   presenca_fumaca?: number;
-  id: string; // O ID agora é uma string de timestamp
+  id: string;
 }
 
 export default function DashboardScreen() {
   const { width: screenWidth, height: screenHeight } = useWindowDimensions();
-  
+
   // Estados
   const [temperatureData, setTemperatureData] = useState<ChartData | null>(null);
   const [humidityData, setHumidityData] = useState<ChartData | null>(null);
@@ -61,19 +61,18 @@ export default function DashboardScreen() {
     minTemp: 19,
     maxTemp: 28,
     humidity: 65,
-    alerts: 0 // Inicializar com 0
+    alerts: 0,
   });
 
-  // Dimensões responsivas
   const dimensions = useMemo(() => {
     const isSmallScreen = screenWidth < 360;
     const isMediumScreen = screenWidth < 768;
-    
+
     return {
       cardWidth: (isSmallScreen ? '100%' : isMediumScreen ? '47%' : '23%') as DimensionValue,
       cardHeight: isSmallScreen ? 130 : isMediumScreen ? 140 : 150,
       chartWidth: screenWidth / 2.4,
-      chartHeight: 160
+      chartHeight: 160,
     };
   }, [screenWidth, screenHeight]);
 
@@ -86,14 +85,14 @@ export default function DashboardScreen() {
       decimalPlaces: 1,
       color: (opacity = 1) => `rgba(51, 65, 85, ${opacity})`,
       labelColor: () => '#64748B',
-      propsForBackgroundLines: { 
-        stroke: '#E2E8F0', 
+      propsForBackgroundLines: {
+        stroke: '#E2E8F0',
         strokeDasharray: '5, 5',
-        strokeWidth: 1 
+        strokeWidth: 1,
       },
-      propsForLabels: { 
+      propsForLabels: {
         fontSize: 11,
-        fontWeight: '500' 
+        fontWeight: '500',
       },
     };
 
@@ -101,21 +100,21 @@ export default function DashboardScreen() {
       temperature: {
         ...baseConfig,
         color: (opacity = 1) => `rgba(255, 107, 107, ${opacity})`,
-        propsForDots: { 
-          r: '4', 
-          strokeWidth: '2', 
-          stroke: '#FF6B6B', 
-          fill: '#FF6B6B' 
+        propsForDots: {
+          r: '4',
+          strokeWidth: '2',
+          stroke: '#FF6B6B',
+          fill: '#FF6B6B',
         },
       },
       humidity: {
         ...baseConfig,
         color: (opacity = 1) => `rgba(0, 188, 212, ${opacity})`,
-        propsForDots: { 
-          r: '0', 
-          strokeWidth: '2', 
-          stroke: '#00BCD4', 
-          fill: '#00BCD4' 
+        propsForDots: {
+          r: '0',
+          strokeWidth: '2',
+          stroke: '#00BCD4',
+          fill: '#00BCD4',
         },
       },
       fumaca: {
@@ -133,7 +132,7 @@ export default function DashboardScreen() {
         fillShadowGradient: '#DF2935',
         fillShadowGradientOpacity: 0.8,
         barRadius: 8,
-      }
+      },
     };
   }, []);
 
@@ -142,20 +141,17 @@ export default function DashboardScreen() {
     if (!readings || readings.length === 0) return null;
 
     const labels = readings.map((reading) => {
-      // Usar o ID (que é um timestamp) para labels, formatando para hora/minuto
       const date = new Date(reading.id);
       return `${date.getHours()}:${date.getMinutes().toString().padStart(2, '0')}`;
     });
 
-    const temperatures = readings.map(r => r.temperatura);
-    const humidities = readings.map(r => r.umidade);
-    const fumacas = readings.map(r => r.presenca_fumaca || Math.random() * 8); // Simulado se não existir
+    const temperatures = readings.map((r) => r.temperatura);
+    const humidities = readings.map((r) => r.umidade);
+    const fumacas = readings.map((r) => r.presenca_fumaca || Math.random() * 8);
 
-    // Calcular min/max
-    const maxTemps = readings.map(r => r.temperatura + Math.random() * 5);
-    const minTemps = readings.map(r => r.temperatura - Math.random() * 5);
+    const maxTemps = readings.map((r) => r.temperatura + Math.random() * 5);
+    const minTemps = readings.map((r) => r.temperatura - Math.random() * 5);
 
-    // Calcular estatísticas
     const avgTemp = Math.round(temperatures.reduce((a, b) => a + b, 0) / temperatures.length);
     const minTemp = Math.round(Math.min(...temperatures));
     const maxTemp = Math.round(Math.max(...temperatures));
@@ -163,7 +159,7 @@ export default function DashboardScreen() {
 
     // Lógica para detectar alertas
     const detectedAlerts: Alert[] = [];
-    const latestReading = readings[readings.length - 1]; // Usar a última leitura para alertas imediatos
+    const latestReading = readings[readings.length - 1];
     const now = new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
 
     if (latestReading.temperatura < config.temperature.lowerThreshold) {
@@ -198,7 +194,10 @@ export default function DashboardScreen() {
       });
     }
 
-    if (latestReading.presenca_fumaca !== undefined && latestReading.presenca_fumaca >= config.smoke.threshold) {
+    if (
+      latestReading.presenca_fumaca !== undefined &&
+      latestReading.presenca_fumaca >= config.smoke.threshold
+    ) {
       detectedAlerts.push({
         id: Date.now() + 5, // ID único
         title: 'Fumaça detectada!',
@@ -220,34 +219,42 @@ export default function DashboardScreen() {
     return {
       temperature: {
         labels,
-        datasets: [{
-          data: temperatures,
-          color: (opacity = 1) => `rgba(255, 107, 107, ${opacity})`,
-          strokeWidth: 2,
-        }],
+        datasets: [
+          {
+            data: temperatures,
+            color: (opacity = 1) => `rgba(255, 107, 107, ${opacity})`,
+            strokeWidth: 2,
+          },
+        ],
       },
       humidity: {
         labels,
-        datasets: [{
-          data: humidities,
-          color: (opacity = 1) => `rgba(0, 188, 212, ${opacity})`,
-          strokeWidth: 2,
-        }],
+        datasets: [
+          {
+            data: humidities,
+            color: (opacity = 1) => `rgba(0, 188, 212, ${opacity})`,
+            strokeWidth: 2,
+          },
+        ],
       },
       fumaca: {
         labels,
-        datasets: [{
-          data: fumacas,
-          color: (opacity = 1) => `rgba(253, 202, 64, ${opacity})`,
-        }],
+        datasets: [
+          {
+            data: fumacas,
+            color: (opacity = 1) => `rgba(253, 202, 64, ${opacity})`,
+          },
+        ],
       },
       maxMin: {
         labels,
-        datasets: [{
-          data: maxTemps.map((max, i) => max - minTemps[i]),
-          color: (opacity = 1) => `rgba(223, 41, 53, ${opacity})`,
-        }],
-      }
+        datasets: [
+          {
+            data: maxTemps.map((max, i) => max - minTemps[i]),
+            color: (opacity = 1) => `rgba(223, 41, 53, ${opacity})`,
+          },
+        ],
+      },
     };
   }, []);
 
@@ -270,7 +277,7 @@ export default function DashboardScreen() {
       console.log('Dados brutos recebidos:', data);
 
       const processedData = processChartData(data);
-      
+
       if (processedData) {
         setTemperatureData(processedData.temperature);
         setHumidityData(processedData.humidity);
@@ -291,7 +298,6 @@ export default function DashboardScreen() {
     }
   }, [processChartData]);
 
-  // Pull to refresh
   const onRefresh = useCallback(() => {
     setRefreshing(true);
     fetchData();
@@ -301,33 +307,35 @@ export default function DashboardScreen() {
     fetchData();
   }, [fetchData]);
 
-  // Stats cards
-  const stats: StatCard[] = useMemo(() => [
-    { 
-      title: 'Média', 
-      value: `${currentStats.avgTemp}°C`, 
-      icon: 'thermometer', 
-      color: '#FF6B6B' 
-    },
-    { 
-      title: 'Mínima', 
-      value: `${currentStats.minTemp}°C`, 
-      icon: 'thermometer-low', 
-      color: '#4ECDC4' 
-    },
-    { 
-      title: 'Máxima', 
-      value: `${currentStats.maxTemp}°C`, 
-      icon: 'thermometer-high', 
-      color: '#FFB236' 
-    },
-    { 
-      title: 'Alertas', 
-      value: `${currentStats.alerts}`, 
-      icon: 'alert-circle', 
-      color: '#FF6B6B' 
-    },
-  ], [currentStats]);
+  const stats: StatCard[] = useMemo(
+    () => [
+      {
+        title: 'Média',
+        value: `${currentStats.avgTemp}°C`,
+        icon: 'thermometer',
+        color: '#FF6B6B',
+      },
+      {
+        title: 'Mínima',
+        value: `${currentStats.minTemp}°C`,
+        icon: 'thermometer-low',
+        color: '#4ECDC4',
+      },
+      {
+        title: 'Máxima',
+        value: `${currentStats.maxTemp}°C`,
+        icon: 'thermometer-high',
+        color: '#FFB236',
+      },
+      {
+        title: 'Alertas',
+        value: `${currentStats.alerts}`,
+        icon: 'alert-circle',
+        color: '#FF6B6B',
+      },
+    ],
+    [currentStats]
+  );
 
   const getAlertColors = (severity: string) => {
     switch (severity) {
@@ -340,16 +348,16 @@ export default function DashboardScreen() {
     }
   };
 
-  const ChartCard = ({ 
-    title, 
-    data, 
-    config, 
+  const ChartCard = ({
+    title,
+    data,
+    config,
     type = 'line',
-    suffix 
-  }: { 
-    title: string; 
-    data: ChartData | null; 
-    config: any; 
+    suffix,
+  }: {
+    title: string;
+    data: ChartData | null;
+    config: any;
     type?: 'line' | 'bar';
     suffix: string;
   }) => (
@@ -396,18 +404,17 @@ export default function DashboardScreen() {
   );
 
   return (
-    <ScrollView 
-      style={styles.scrollView} 
+    <ScrollView
+      style={styles.scrollView}
       showsVerticalScrollIndicator={false}
       refreshControl={
-        <RefreshControl 
-          refreshing={refreshing} 
+        <RefreshControl
+          refreshing={refreshing}
           onRefresh={onRefresh}
           tintColor="#FF6B6B"
           colors={['#FF6B6B']}
         />
-      }
-    >
+      }>
       <View style={styles.container}>
         {/* Header */}
         <View style={styles.header}>
@@ -415,10 +422,11 @@ export default function DashboardScreen() {
             <Text style={styles.headerTitle}>Dashboard</Text>
             {lastRefresh && (
               <Text style={styles.timestampText}>
-                Atualizado: {lastRefresh.toLocaleTimeString('pt-BR', { 
-                  hour: '2-digit', 
+                Atualizado:{' '}
+                {lastRefresh.toLocaleTimeString('pt-BR', {
+                  hour: '2-digit',
                   minute: '2-digit',
-                  second: '2-digit'
+                  second: '2-digit',
                 })}
               </Text>
             )}
@@ -432,15 +440,15 @@ export default function DashboardScreen() {
         <View style={styles.contentContainer}>
           {/* Gráficos Linha 1 */}
           <View style={styles.chartsRow}>
-            <ChartCard 
-              title="Temperatura" 
+            <ChartCard
+              title="Temperatura"
               data={temperatureData}
               config={chartConfigs.temperature}
               type="line"
               suffix="°C"
             />
-            <ChartCard 
-              title="Umidade" 
+            <ChartCard
+              title="Umidade"
               data={humidityData}
               config={chartConfigs.humidity}
               type="line"
@@ -450,15 +458,15 @@ export default function DashboardScreen() {
 
           {/* Gráficos Linha 2 */}
           <View style={styles.chartsRow}>
-            <ChartCard 
-              title="Detecção de Fumaça" 
+            <ChartCard
+              title="Detecção de Fumaça"
               data={fumacaData}
               config={chartConfigs.fumaca}
               type="bar"
               suffix="ppm"
             />
-            <ChartCard 
-              title="Temperatura Máx/Min" 
+            <ChartCard
+              title="Temperatura Máx/Min"
               data={maxMinData}
               config={chartConfigs.maxMin}
               type="bar"
@@ -469,36 +477,26 @@ export default function DashboardScreen() {
           {/* Cards de estatísticas */}
           <View style={styles.statsContainer}>
             {stats.map((stat, index) => (
-              <View 
-                key={index} 
+              <View
+                key={index}
                 style={[
-                  styles.statCard, 
-                  { 
-                    width: dimensions.cardWidth, 
-                    height: dimensions.cardHeight 
-                  }
-                ]}
-              >
-                <MaterialCommunityIcons 
-                  name={stat.icon} 
-                  size={40} 
-                  color={stat.color} 
-                />
+                  styles.statCard,
+                  {
+                    width: dimensions.cardWidth,
+                    height: dimensions.cardHeight,
+                  },
+                ]}>
+                <MaterialCommunityIcons name={stat.icon} size={40} color={stat.color} />
                 <Text style={styles.statValue}>{stat.value}</Text>
                 <Text style={styles.statTitle}>{stat.title}</Text>
               </View>
             ))}
           </View>
 
-
           {/* Alertas Recentes */}
           <View style={styles.alertsContainer}>
             <View style={styles.alertsHeader}>
-              <MaterialCommunityIcons 
-                name="bell-ring" 
-                size={20} 
-                color="#FFA726" 
-              />
+              <MaterialCommunityIcons name="bell-ring" size={20} color="#FFA726" />
               <Text style={styles.alertsTitle}>Alertas Recentes</Text>
             </View>
             {recentAlerts.map((alert) => {
@@ -508,12 +506,11 @@ export default function DashboardScreen() {
                   key={alert.id}
                   style={[
                     styles.alertCard,
-                    { 
-                      backgroundColor: colors.bg, 
-                      borderLeftColor: colors.border 
+                    {
+                      backgroundColor: colors.bg,
+                      borderLeftColor: colors.border,
                     },
-                  ]}
-                >
+                  ]}>
                   <MaterialCommunityIcons
                     name={colors.icon as any}
                     size={20}
@@ -533,28 +530,27 @@ export default function DashboardScreen() {
   );
 }
 
-
 const styles = StyleSheet.create({
-  scrollView: { 
-    flex: 1, 
-    backgroundColor: '#F0F4F8' 
+  scrollView: {
+    flex: 1,
+    backgroundColor: '#F0F4F8',
   },
-  container: { 
-    flex: 1, 
-    padding: 16, 
-    paddingBottom: 32, 
+  container: {
+    flex: 1,
+    padding: 16,
+    paddingBottom: 32,
   },
-  contentContainer: { 
-    width: '100%', 
+  contentContainer: {
+    width: '100%',
     alignItems: 'center',
   },
-  header: { 
+  header: {
     width: '100%',
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     marginTop: 16,
-    marginBottom: 24 
+    marginBottom: 24,
   },
   headerTitle: {
     fontSize: 28,
@@ -578,16 +574,16 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: 'rgba(76, 175, 80, 0.3)',
   },
-  statusDot: { 
-    width: 8, 
-    height: 8, 
-    borderRadius: 4, 
-    backgroundColor: '#4CAF50' 
+  statusDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#4CAF50',
   },
-  statusText: { 
-    color: '#4CAF50', 
-    fontSize: 12, 
-    fontWeight: '600' 
+  statusText: {
+    color: '#4CAF50',
+    fontSize: 12,
+    fontWeight: '600',
   },
   chartsRow: {
     flexDirection: 'row',
@@ -602,7 +598,7 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     padding: 16,
     paddingVertical: 10,
-    paddingHorizontal:8,
+    paddingHorizontal: 8,
     alignItems: 'center',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
@@ -620,7 +616,7 @@ const styles = StyleSheet.create({
     marginBottom: 12,
     textAlign: 'center',
   },
-  chart: { 
+  chart: {
     borderRadius: 12,
     marginVertical: 8,
     overflow: 'hidden',
@@ -631,7 +627,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     minHeight: 150,
   },
-  errorText: { 
+  errorText: {
     color: '#FF6B6B',
     fontSize: 12,
   },
@@ -657,13 +653,13 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.22,
     shadowRadius: 2.22,
   },
-  statValue: { 
-    color: '#334155', 
+  statValue: {
+    color: '#334155',
     fontSize: 24,
-    fontWeight: 'bold', 
+    fontWeight: 'bold',
     marginTop: 8,
   },
-  statTitle: { 
+  statTitle: {
     color: '#64748B',
     fontSize: 12,
     marginTop: 4,
@@ -704,15 +700,15 @@ const styles = StyleSheet.create({
     color: '#64748B',
     marginTop: 8,
   },
-  progressBar: { 
-    width: '100%', 
-    height: 8, 
-    backgroundColor: '#E2E8F0', 
+  progressBar: {
+    width: '100%',
+    height: 8,
+    backgroundColor: '#E2E8F0',
     borderRadius: 4,
     overflow: 'hidden',
   },
-  progressFill: { 
-    height: '100%', 
+  progressFill: {
+    height: '100%',
     borderRadius: 4,
   },
   alertsContainer: {
@@ -735,9 +731,9 @@ const styles = StyleSheet.create({
     gap: 8,
     marginBottom: 16,
   },
-  alertsTitle: { 
+  alertsTitle: {
     color: '#334155',
-    fontSize: 16, 
+    fontSize: 16,
     fontWeight: 'bold',
   },
   alertCard: {
@@ -748,19 +744,18 @@ const styles = StyleSheet.create({
     marginBottom: 8,
     borderLeftWidth: 4,
   },
-  alertInfo: { 
-    marginLeft: 12, 
-    flex: 1 
+  alertInfo: {
+    marginLeft: 12,
+    flex: 1,
   },
-  alertText: { 
-    color: '#334155', 
-    fontSize: 14, 
+  alertText: {
+    color: '#334155',
+    fontSize: 14,
     fontWeight: '500',
     marginBottom: 4,
   },
-  alertTime: { 
-    color: '#64748B', 
-    fontSize: 12 
+  alertTime: {
+    color: '#64748B',
+    fontSize: 12,
   },
 });
-

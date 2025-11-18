@@ -24,7 +24,7 @@ export const scheduleTemperatureNotification = async (temperature: number, thres
   try {
     await Notifications.scheduleNotificationAsync({
       content: {
-        title: "Alerta de Temperatura",
+        title: 'Alerta de Temperatura',
         body: `A temperatura atual é de ${temperature}°C, abaixo do limite de segurança!`,
         data: { temperature, threshold },
       },
@@ -33,4 +33,21 @@ export const scheduleTemperatureNotification = async (temperature: number, thres
   } catch (error) {
     console.error('Error scheduling notification:', error);
   }
-}; 
+};
+
+export const scheduleSmokeNotification = async (temperature: number | null, smokeLevel: number) => {
+  try {
+    const tempPart =
+      temperature !== null && temperature !== undefined ? ` Temperatura: ${temperature}°C.` : '';
+    await Notifications.scheduleNotificationAsync({
+      content: {
+        title: 'Fumaça detectada!',
+        body: `O sensor detectou fumaça.${tempPart}`,
+        data: { temperature, smokeLevel },
+      },
+      trigger: null,
+    });
+  } catch (error) {
+    console.error('Error scheduling smoke notification:', error);
+  }
+};

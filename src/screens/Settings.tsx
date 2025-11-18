@@ -3,7 +3,9 @@ import { View, Text, TouchableOpacity, Switch, StyleSheet, Alert } from 'react-n
 import { StatusBar } from 'expo-status-bar';
 import { supabase } from '../routes/supabase';
 import { useNavigation } from '@react-navigation/native';
-import { registerBackgroundTask } from '../utils/backgroundTask';
+import { registerBackgroundTask, unregisterBackgroundTask } from '../utils/backgroundTask';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as Notifications from 'expo-notifications';
 import { TextInput, Button } from 'react-native-paper';
 
 export default function SettingsScreen() {
@@ -15,10 +17,31 @@ export default function SettingsScreen() {
   const [confirmPassword, setConfirmPassword] = useState('');
 
   useEffect(() => {
+    // Persist preference
+    AsyncStorage.setItem('notifications_enabled', isNotificationsEnabled ? 'true' : 'false').catch(
+      console.error
+    );
+
     if (isNotificationsEnabled) {
       registerBackgroundTask().catch(console.error);
+    } else {
+      // Unregister background task and cancel scheduled notifications when disabled
+      unregisterBackgroundTask().catch(console.error);
+      Notifications.cancelAllScheduledNotificationsAsync().catch(console.error);
     }
   }, [isNotificationsEnabled]);
+
+  // Load persisted preference on mount
+  useEffect(() => {
+    (async () => {
+      try {
+        const stored = await AsyncStorage.getItem('notifications_enabled');
+        if (stored !== null) setIsNotificationsEnabled(stored === 'true');
+      } catch (err) {
+        console.error('Erro ao carregar preferência de notificações:', err);
+      }
+    })();
+  }, []);
 
   const toggleNotifications = () => {
     setIsNotificationsEnabled((previousState) => !previousState);
@@ -37,7 +60,7 @@ export default function SettingsScreen() {
 
     try {
       const { error } = await supabase.auth.updateUser({
-        password: newPassword
+        password: newPassword,
       });
 
       if (error) throw error;
@@ -64,7 +87,7 @@ export default function SettingsScreen() {
   return (
     <View style={styles.container}>
       <StatusBar style="dark" />
-      
+
       <Text style={styles.title}>Configurações</Text>
 
       <View style={styles.card}>
@@ -77,17 +100,16 @@ export default function SettingsScreen() {
             thumbColor={isNotificationsEnabled ? '#93C5FD' : '#93C5FD'}
           />
         </View>
-        
+
         <Text style={styles.description}>
           Receba alertas quando a temperatura estiver abaixo de 19°C ou acima de 25°C
         </Text>
       </View>
 
       <View style={styles.card}>
-        <TouchableOpacity 
-          style={styles.passwordButton} 
-          onPress={() => setIsChangingPassword(!isChangingPassword)}
-        >
+        <TouchableOpacity
+          style={styles.passwordButton}
+          onPress={() => setIsChangingPassword(!isChangingPassword)}>
           <Text style={styles.optionText}>Alterar Senha</Text>
         </TouchableOpacity>
 
@@ -107,11 +129,10 @@ export default function SettingsScreen() {
               secureTextEntry
               style={styles.input}
             />
-            <Button 
-              mode="contained" 
+            <Button
+              mode="contained"
               onPress={handleChangePassword}
-              style={styles.changePasswordButton}
-            >
+              style={styles.changePasswordButton}>
               Confirmar Alteração
             </Button>
           </View>
