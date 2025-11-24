@@ -146,8 +146,8 @@ export default function DashboardScreen() {
     });
 
     const temperatures = readings.map((r) => r.temperatura);
-    const humidities = readings.map((r) => r.umidade);
-    const fumacas = readings.map((r) => r.presenca_fumaca || Math.random() * 8);
+    const humidities = readings.map((r) => Number(r.umidade));
+    const fumacas = readings.map((r) => r.presenca_fumaca ?? Math.random() * 8);
 
     const maxTemps = readings.map((r) => r.temperatura + Math.random() * 5);
     const minTemps = readings.map((r) => r.temperatura - Math.random() * 5);
@@ -178,14 +178,15 @@ export default function DashboardScreen() {
       });
     }
 
-    if (latestReading.umidade < config.humidity.lowerThreshold) {
+    const latestHumidity = Number(latestReading.umidade ?? 0);
+    if (latestHumidity < config.humidity.lowerThreshold) {
       detectedAlerts.push({
         id: Date.now() + 3, // ID único
         title: 'Umidade muito baixa',
         time: `Hoje, ${now}`,
         severity: 'info',
       });
-    } else if (latestReading.umidade > config.humidity.upperThreshold) {
+    } else if (latestHumidity > config.humidity.upperThreshold) {
       detectedAlerts.push({
         id: Date.now() + 4, // ID único
         title: 'Umidade muito alta',
@@ -193,11 +194,8 @@ export default function DashboardScreen() {
         severity: 'info',
       });
     }
-
-    if (
-      latestReading.presenca_fumaca !== undefined &&
-      latestReading.presenca_fumaca >= config.smoke.threshold
-    ) {
+    const latestSmoke = Number(latestReading.presenca_fumaca ?? NaN);
+    if (!isNaN(latestSmoke) && latestSmoke >= config.smoke.threshold) {
       detectedAlerts.push({
         id: Date.now() + 5, // ID único
         title: 'Fumaça detectada!',
@@ -305,6 +303,26 @@ export default function DashboardScreen() {
 
   useEffect(() => {
     fetchData();
+
+    console.log('Configurando subscription Supabase no Dashboard...');
+    const subscription = supabaseData
+      .channel('leituras_sensores_changes_dashboard')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'leituras_sensores' },
+        (payload) => {
+          console.log('Realtime payload (dashboard):', payload);
+          fetchData();
+        }
+      )
+      .subscribe((status) => {
+        console.log('Status da subscription (dashboard):', status);
+      });
+
+    return () => {
+      console.log('Unsubscribing dashboard subscription...');
+      subscription.unsubscribe();
+    };
   }, [fetchData]);
 
   const stats: StatCard[] = useMemo(

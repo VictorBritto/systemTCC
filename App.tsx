@@ -6,7 +6,6 @@ import * as Linking from 'expo-linking';
 import { setupNotifications } from './src/services/notifications';
 import { registerBackgroundTask } from './src/utils/backgroundTask';
 
-// Error Boundary para capturar erros
 class ErrorBoundary extends React.Component<
   { children: React.ReactNode },
   { hasError: boolean; error?: Error }
@@ -29,9 +28,7 @@ class ErrorBoundary extends React.Component<
       return (
         <View style={styles.errorContainer}>
           <Text style={styles.errorTitle}>Ops! Algo deu errado</Text>
-          <Text style={styles.errorText}>
-            O app encontrou um problema inesperado.
-          </Text>
+          <Text style={styles.errorText}>O app encontrou um problema inesperado.</Text>
           <Text style={styles.errorDetails}>
             {this.state.error?.message || 'Erro desconhecido'}
           </Text>
@@ -71,17 +68,15 @@ const styles = StyleSheet.create({
   },
 });
 
-
 export default function App() {
   useEffect(() => {
-    // Inicializar notificações e background task quando o app iniciar
     const initializeApp = async () => {
       try {
-        // Configurar notificações
+        // Configurar notificaçõess
         const notificationsEnabled = await setupNotifications();
         if (notificationsEnabled) {
           console.log('Notificações configuradas com sucesso');
-          
+
           // Registrar tarefa em background para monitorar temperatura
           await registerBackgroundTask();
         } else {

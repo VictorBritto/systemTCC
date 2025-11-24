@@ -17,7 +17,6 @@ export default function SettingsScreen() {
   const [confirmPassword, setConfirmPassword] = useState('');
 
   useEffect(() => {
-    // Persist preference
     AsyncStorage.setItem('notifications_enabled', isNotificationsEnabled ? 'true' : 'false').catch(
       console.error
     );
@@ -25,13 +24,11 @@ export default function SettingsScreen() {
     if (isNotificationsEnabled) {
       registerBackgroundTask().catch(console.error);
     } else {
-      // Unregister background task and cancel scheduled notifications when disabled
       unregisterBackgroundTask().catch(console.error);
       Notifications.cancelAllScheduledNotificationsAsync().catch(console.error);
     }
   }, [isNotificationsEnabled]);
 
-  // Load persisted preference on mount
   useEffect(() => {
     (async () => {
       try {

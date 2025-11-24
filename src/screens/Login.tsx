@@ -6,34 +6,56 @@ import { useFonts } from 'expo-font';
 import { supabase } from '../routes/supabase';
 import { useGoogleAuth } from '../components/googleSignIn';
 
-
 function LoginScreen() {
   const navigation = useNavigation();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   const [fontsLoaded] = useFonts({
     'Poppins-Medium': require('../../assets/fonts/Poppins-Medium.ttf'),
     'Poppins-SemiBold': require('../../assets/fonts/Poppins-SemiBold.ttf'),
   });
 
-  const { promptAsync } = useGoogleAuth(navigation); 
+  const { promptAsync } = useGoogleAuth(navigation);
 
   const handleLogin = async () => {
+    setErrorMsg(null);
+    // Validações básicas
+    const emailTrim = (email || '').trim().toLowerCase();
+    const emailRegex = /^\S+@\S+\.\S+$/;
+    if (!emailTrim) {
+      setErrorMsg('Por favor, informe o e-mail');
+      Alert.alert('Erro', 'Por favor, informe o e-mail');
+      return;
+    }
+    if (!emailRegex.test(emailTrim)) {
+      setErrorMsg('E-mail inválido');
+      Alert.alert('Erro', 'E-mail inválido');
+      return;
+    }
+    if (!password || password.length < 6) {
+      setErrorMsg('Senha deve ter ao menos 6 caracteres');
+      Alert.alert('Erro', 'Senha deve ter ao menos 6 caracteres');
+      return;
+    }
     try {
       const { data, error } = await supabase.auth.signInWithPassword({
-        email,
+        email: emailTrim,
         password,
       });
 
       if (error) {
+        setErrorMsg(error.message);
         Alert.alert('Erro', error.message);
         return;
       }
 
       navigation.navigate('Main' as never);
     } catch (err: any) {
-      Alert.alert('Erro', err.message || 'Erro ao logar');
+      const msg = err?.message || 'Erro ao logar';
+      setErrorMsg(msg);
+      Alert.alert('Erro', msg);
     }
   };
 
@@ -57,6 +79,9 @@ function LoginScreen() {
           keyboardType="email-address"
           autoCapitalize="none"
         />
+        {errorMsg && (
+          <Text style={{ color: '#FF6B6B', marginBottom: 8, textAlign: 'center' }}>{errorMsg}</Text>
+        )}
 
         <TextInput
           label="Senha"
@@ -67,8 +92,8 @@ function LoginScreen() {
         />
 
         <Text
-        style={[styles.cadastro, { fontFamily: 'Poppins-Medium' }]}
-        onPress={() => navigation.navigate('Password' as never)}>
+          style={[styles.cadastro, { fontFamily: 'Poppins-Medium' }]}
+          onPress={() => navigation.navigate('Password' as never)}>
           Esqueceu a senha?
         </Text>
 
@@ -80,11 +105,9 @@ function LoginScreen() {
 
         <Text
           style={[styles.cadastro, { fontFamily: 'Poppins-Medium' }]}
-          onPress={() => navigation.navigate('Register' as never)}
-        >
+          onPress={() => navigation.navigate('Register' as never)}>
           Não tem uma conta ainda? Cadastrar-se
         </Text>
-
       </View>
     </View>
   );

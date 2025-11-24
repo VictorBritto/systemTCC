@@ -47,6 +47,10 @@ export const scheduleSmokeNotification = async (temperature: number | null, smok
       },
       trigger: null,
     });
+    console.log('[notifications] scheduleSmokeNotification: agendada', {
+      temperature,
+      smokeLevel,
+    });
   } catch (error) {
     console.error('Error scheduling smoke notification:', error);
   }

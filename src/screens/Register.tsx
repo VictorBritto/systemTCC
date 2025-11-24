@@ -16,13 +16,9 @@ export default function RegisterScreen() {
     const numeros = text.replace(/\D/g, '');
 
     if (numeros.length <= 10) {
-      return numeros
-        .replace(/(\d{2})(\d)/, '($1) $2')
-        .replace(/(\d{4})(\d)/, '$1-$2');
+      return numeros.replace(/(\d{2})(\d)/, '($1) $2').replace(/(\d{4})(\d)/, '$1-$2');
     } else {
-      return numeros
-        .replace(/(\d{2})(\d)/, '($1) $2')
-        .replace(/(\d{5})(\d)/, '$1-$2');
+      return numeros.replace(/(\d{2})(\d)/, '($1) $2').replace(/(\d{5})(\d)/, '$1-$2');
     }
   };
 
@@ -33,19 +29,37 @@ export default function RegisterScreen() {
   };
 
   const handleRegister = async () => {
+    // Validações básicas
+    const emailTrim = (email || '').trim().toLowerCase();
+    const emailRegex = /^\S+@\S+\.\S+$/;
+    if (!nome.trim()) {
+      Alert.alert('Erro', 'Por favor, insira seu nome');
+      return;
+    }
+    if (!emailTrim) {
+      Alert.alert('Erro', 'Por favor, insira seu e-mail');
+      return;
+    }
+    if (!emailRegex.test(emailTrim)) {
+      Alert.alert('Erro', 'E-mail inválido');
+      return;
+    }
+    if (!telefone || telefone.replace(/\D/g, '').length < 10) {
+      Alert.alert('Erro', 'Telefone inválido');
+      return;
+    }
+    if (password.length < 6) {
+      Alert.alert('Erro', 'Senha deve ter pelo menos 6 caracteres');
+      return;
+    }
     if (password !== password2) {
       Alert.alert('Erro', 'As senhas não coincidem');
       return;
     }
 
-    if (!nome.trim()) {
-      Alert.alert('Erro', 'Por favor, insira seu nome');
-      return;
-    }
-
     try {
       const { error } = await supabase.auth.signUp({
-        email,
+        email: emailTrim,
         password,
         options: {
           data: {
@@ -119,8 +133,7 @@ export default function RegisterScreen() {
 
         <Text
           style={[styles.login, { fontFamily: 'Poppins-Medium' }]}
-          onPress={() => navigation.navigate('Login' as never)}
-        >
+          onPress={() => navigation.navigate('Login' as never)}>
           Já tem uma conta? Fazer login
         </Text>
       </View>

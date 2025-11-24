@@ -2,12 +2,12 @@
 import { supabaseData } from '../routes/supabaseData.js';
 import * as Notifications from 'expo-notifications';
 
-export const generateRandomTemperature = (): string => {
-  return (Math.random() * (30 - 10) + 10).toFixed(2);
+export const generateRandomTemperature = (): number => {
+  return parseFloat((Math.random() * (30 - 10) + 10).toFixed(2));
 };
 
-export const generateRandomHumidity = (): string => {
-  return (Math.random() * (90 - 30) + 30).toFixed(2);
+export const generateRandomHumidity = (): number => {
+  return parseFloat((Math.random() * (90 - 30) + 30).toFixed(2));
 };
 
 export const sendNotification = async (temp: number) => {
@@ -21,13 +21,31 @@ export const sendNotification = async (temp: number) => {
   });
 };
 
+export const sendSimulatedData = async (temp: number) => {
+  await Notifications.scheduleNotificationAsync({
+    content: {
+      title: 'Alerta de Temperatura',
+      body: `A temperatura atual é de ${temp}°C, abaixo do limite de segurança!`,
+      sound: true,
+    },
+    trigger: null,
+  });
+};
+
 export const sendSimulatedData = async () => {
   const temperaturaSimulada = generateRandomTemperature();
-  const umidadeSimulada = generateRandomHumidity(); // Gerar umidade simulada
+  const umidadeSimulada = generateRandomHumidity();
+  // Simular presença de fumaça: 10% de chance de algum valor acima de 0
+  const presencaFumacaSimulada =
+    Math.random() < 0.1 ? parseFloat((Math.random() * 150).toFixed(1)) : 0;
 
-  const { error } = await supabaseData
-    .from('leituras_sensores')
-    .insert([{ temperatura: temperaturaSimulada, umidade: umidadeSimulada }]); // Inserir umidade também
+  const { error } = await supabaseData.from('leituras_sensores').insert([
+    {
+      temperatura: temperaturaSimulada,
+      umidade: umidadeSimulada,
+      presenca_fumaca: presencaFumacaSimulada,
+    },
+  ]);
 
   if (error) {
     console.error('Erro ao inserir dados no Supabase:', error);
@@ -42,8 +60,8 @@ export const insertMultipleRandomData = async (count: number = 10) => {
   const randomData = [];
 
   for (let i = 0; i < count; i++) {
-    const temperatura = parseFloat(generateRandomTemperature());
-    const umidade = parseFloat(generateRandomHumidity()); // Gerar umidade para cada registro
+    const temperatura = generateRandomTemperature();
+    const umidade = generateRandomHumidity(); // Gerar umidade para cada registro
 
     randomData.push({
       temperatura,
