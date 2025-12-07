@@ -204,16 +204,3 @@ export const unregisterBackgroundTask = async () => {
   }
 };
 
-// Helpers para testes manuais (simular leituras e limpar cooldowns)
-export const simulateSensorReadings = async (temperatura: number, smokeValue?: number | null) => {
-  try {
-    // permitir utilizar as mesmas rotinas de verificação
-    await checkTemperatureAndNotify(temperatura, smokeValue ?? null);
-    if (smokeValue !== null && smokeValue !== undefined) {
-      await checkSmokeAndNotify(smokeValue, temperatura ?? null);
-    }
-    console.log('[BackgroundTask] Simulação executada', { temperatura, smokeValue });
-  } catch (err) {
-    console.error('Erro ao simular leituras:', err);
-  }
-};

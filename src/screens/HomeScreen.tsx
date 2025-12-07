@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   StyleSheet,
   Text,
@@ -16,7 +16,6 @@ import { supabaseData } from '../routes/supabaseData.js';
 import Toast from 'react-native-toast-message';
 import { scheduleSmokeNotification } from '../services/notifications';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { config } from '../config';
 
 const windowWidth = Dimensions.get('window').width;
 
@@ -38,7 +37,6 @@ export default function HomeScreen() {
   const [sensorData, setSensorData] = useState<any>(null);
   const [previousSmokePresence, setPreviousSmokePresence] = useState<boolean | null>(null);
   const [previousSensorData, setPreviousSensorData] = useState<any>(null);
-  const previousSmokeRef = useRef<boolean | null>(null);
 
   const fetchSensorData = async () => {
     try {
@@ -56,7 +54,7 @@ export default function HomeScreen() {
 
       if (data && data.length > 0) {
         setSensorData(data[0]);
-        setPreviousSmokePresence(Number(data[0].presenca_fumaca ?? 0) > 100);
+        setPreviousSmokePresence((data[0].presenca_fumaca || 0) >= 100);
         setPreviousSensorData(data[0]);
       }
     } catch (error) {
@@ -97,49 +95,8 @@ export default function HomeScreen() {
           schema: 'public',
           table: 'leituras_sensores',
         },
-        async (payload) => {
-          const newData = payload.new as any;
-          setSensorData(newData);
-
-          try {
-            const smokeVal = Number(newData?.presenca_fumaca ?? 0);
-            const threshold = config.smoke.threshold ?? 100;
-            const smokeDetected = smokeVal > threshold;
-
-            // Se transição de Não -> Sim, disparar notificação imediata
-            if (previousSmokeRef.current !== true && smokeDetected) {
-              // evitar spam: adicionar cooldown local (5 minutos)
-              try {
-                const last = await AsyncStorage.getItem('last_smoke_notification');
-                const lastTs = last ? Number(last) : 0;
-                const now = Date.now();
-                const COOLDOWN = 5 * 60 * 1000; // 5 minutos
-                if (now - lastTs > COOLDOWN) {
-                  console.log('[home] smoke realtime: agendando notificação', {
-                    temperatura: newData?.temperatura ?? null,
-                    smokeVal,
-                    lastTs,
-                  });
-                  await scheduleSmokeNotification(newData?.temperatura ?? null, smokeVal);
-                  await AsyncStorage.setItem('last_smoke_notification', String(now));
-                } else {
-                  console.log('[home] smoke realtime: dentro do cooldown, ignorando notificação', {
-                    now,
-                    lastTs,
-                    delta: now - lastTs,
-                  });
-                }
-              } catch (err) {
-                console.error('Erro ao gerenciar cooldown de notificação de fumaça:', err);
-              }
-            }
-
-            // Atualizar referência local e estado
-            previousSmokeRef.current = smokeDetected;
-            setPreviousSmokePresence(smokeDetected);
-          } catch (err) {
-            console.error('Erro no handler realtime (fumaça):', err);
-          }
+        (payload) => {
+          setSensorData(payload.new);
         }
       )
       .subscribe(() => {});
@@ -151,7 +108,7 @@ export default function HomeScreen() {
 
   useEffect(() => {
     if (sensorData !== null && JSON.stringify(sensorData) !== JSON.stringify(previousSensorData)) {
-      const currentSmokePresence = Number(sensorData.presenca_fumaca ?? 0) > 100;
+      const currentSmokePresence = (sensorData.presenca_fumaca || 0) >= 100;
 
       if (previousSmokePresence !== null && currentSmokePresence && !previousSmokePresence) {
         Toast.show({
@@ -172,14 +129,6 @@ export default function HomeScreen() {
                 .eq('id', sensorData.id);
 
               if (error) console.error('Erro ao atualizar DB:', error);
-              try {
-                await scheduleSmokeNotification(
-                  sensorData?.temperatura ?? null,
-                  Number(sensorData?.presenca_fumaca ?? 0)
-                );
-              } catch (err) {
-                console.error('Erro ao agendar notificação de fumaça:', err);
-              }
             }
           } catch (err) {
             console.error('Erro ao persistir detecção de fumaça:', err);
@@ -192,9 +141,7 @@ export default function HomeScreen() {
         Toast.show({
           type: 'info',
           text1: 'Atualização de Sensores',
-          text2: `Temperatura: ${Number(sensorData.temperatura).toFixed(1)}°C, Umidade: ${Number(
-            sensorData.umidade
-          ).toFixed(1)}%`,
+          text2: `Temperatura: ${sensorData.temperatura}°C, Umidade: ${sensorData.umidade}%`,
           position: 'top',
           visibilityTime: 3000,
           autoHide: true,
@@ -213,8 +160,6 @@ export default function HomeScreen() {
   };
 
   const loading = tempLoading || weatherLoading;
-
-  const smokeDetected = Number(sensorData?.presenca_fumaca ?? 0) > (config.smoke?.threshold ?? 100);
 
   return (
     <ScrollView
@@ -250,30 +195,18 @@ export default function HomeScreen() {
         </View>
       </View>
 
-      {smokeDetected && (
-        <TouchableOpacity style={styles.alertCard} activeOpacity={0.9} onPress={() => {}}>
-          <View style={styles.alertIconWrap}>
-            <MaterialCommunityIcons name="bell" size={18} color="#F59E0B" />
-          </View>
-          <Text style={styles.alertCardText}>Alertas Recentes</Text>
-        </TouchableOpacity>
-      )}
-
       <View style={styles.secondPanel}>
         <View style={styles.row}>
           {[
             {
               icon: 'cloud',
               label: 'Fumaça',
-              value: Number(sensorData?.presenca_fumaca ?? 0) > (config.smoke?.threshold ?? 100) ? 'Sim' : 'Não',
+              value: (sensorData?.presenca_fumaca || 0) >= 100 ? 'Sim' : 'Não',
             },
             {
               icon: 'water',
               label: 'Umidade',
-              value:
-                sensorData?.umidade !== undefined && sensorData?.umidade !== null
-                  ? `${Number(sensorData.umidade).toFixed(1)}%`
-                  : '---',
+              value: sensorData?.umidade ? `${sensorData.umidade}%` : '---',
             },
             { icon: 'thermometer', label: 'Temperatura', value: `${temperatura ?? '---'}°C` },
           ].map(({ icon, label, value }, i) => (
@@ -306,7 +239,7 @@ export default function HomeScreen() {
                 </Text>
                 {lastRefresh && (
                   <Text style={[styles.weatherDescription, styles.timestampText]}>
-                    Atualizado:{' '}
+                    Atualizado: {' '}
                     {lastRefresh.toLocaleTimeString('pt-BR', {
                       hour: '2-digit',
                       minute: '2-digit',
@@ -468,35 +401,6 @@ const styles = StyleSheet.create({
   retryButtonText: {
     color: '#FFFFFF',
     fontSize: 12,
-    fontWeight: '600',
-  },
-  alertCard: {
-    width: '100%',
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 16,
-    elevation: 2,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.12,
-    shadowRadius: 2,
-  },
-  alertIconWrap: {
-    width: 34,
-    height: 34,
-    borderRadius: 10,
-    backgroundColor: '#FFF7ED',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 12,
-  },
-  alertCardText: {
-    color: '#334155',
-    fontSize: 16,
     fontWeight: '600',
   },
 });

@@ -147,7 +147,7 @@ export default function DashboardScreen() {
 
     const temperatures = readings.map((r) => r.temperatura);
     const humidities = readings.map((r) => Number(r.umidade));
-    const fumacas = readings.map((r) => r.presenca_fumaca ?? Math.random() * 8);
+    const fumacas = readings.map((r) => r.presenca_fumaca);
 
     const maxTemps = readings.map((r) => r.temperatura + Math.random() * 5);
     const minTemps = readings.map((r) => r.temperatura - Math.random() * 5);
@@ -486,13 +486,6 @@ export default function DashboardScreen() {
               config={chartConfigs.fumaca}
               type="bar"
               suffix="ppm"
-            />
-            <ChartCard
-              title="Temperatura Máx/Min"
-              data={maxMinData}
-              config={chartConfigs.maxMin}
-              type="bar"
-              suffix="°C"
             />
           </View>
 
