@@ -50,19 +50,21 @@ const shouldSendNotification = async (
   }
 };
 
-const checkTemperatureAndNotify = async (temperatura: number) => {
+const checkTemperatureAndNotify = async (temperatura: number, smokeValue?: number | null) => {
   const { lowerThreshold, upperThreshold } = config.temperature;
 
   if (temperatura < lowerThreshold) {
     const canNotify = await shouldSendNotification(temperatura, lowerThreshold, 'low');
     if (canNotify) {
+      const smokePart =
+        smokeValue !== null && smokeValue !== undefined ? ` Fumaça: ${smokeValue} ppm.` : '';
       await Notifications.scheduleNotificationAsync({
         content: {
           title: '🌡️ Alerta de Temperatura Baixa',
-          body: `A temperatura atual é de ${temperatura.toFixed(1)}°C, abaixo do limite mínimo de ${lowerThreshold}°C!`,
+          body: `A temperatura atual é de ${temperatura.toFixed(1)}°C, abaixo do limite mínimo de ${lowerThreshold}°C!${smokePart}`,
           sound: true,
           priority: Notifications.AndroidNotificationPriority.HIGH,
-          data: { temperature: temperatura, type: 'low' },
+          data: { temperature: temperatura, type: 'low', smokeValue },
         },
         trigger: null,
       });
@@ -70,13 +72,15 @@ const checkTemperatureAndNotify = async (temperatura: number) => {
   } else if (temperatura > upperThreshold) {
     const canNotify = await shouldSendNotification(temperatura, upperThreshold, 'high');
     if (canNotify) {
+      const smokePart =
+        smokeValue !== null && smokeValue !== undefined ? ` Fumaça: ${smokeValue} ppm.` : '';
       await Notifications.scheduleNotificationAsync({
         content: {
           title: '🔥 Alerta de Temperatura Alta',
-          body: `A temperatura atual é de ${temperatura.toFixed(1)}°C, acima do limite máximo de ${upperThreshold}°C!`,
+          body: `A temperatura atual é de ${temperatura.toFixed(1)}°C, acima do limite máximo de ${upperThreshold}°C!${smokePart}`,
           sound: true,
           priority: Notifications.AndroidNotificationPriority.HIGH,
-          data: { temperature: temperatura, type: 'high' },
+          data: { temperature: temperatura, type: 'high', smokeValue },
         },
         trigger: null,
       });
@@ -84,13 +88,57 @@ const checkTemperatureAndNotify = async (temperatura: number) => {
   }
 };
 
+const LAST_SMOKE_NOTIFICATION_KEY = 'last_smoke_notification_bg';
+
+const checkSmokeAndNotify = async (smokeValue: number, temperature: number | null) => {
+  try {
+    const threshold = config.smoke?.threshold ?? 100;
+    if (smokeValue >= threshold) {
+      // verificar cooldown para fumaça
+      try {
+        const last = await AsyncStorage.getItem(LAST_SMOKE_NOTIFICATION_KEY);
+        const lastTs = last ? Number(last) : 0;
+        const now = Date.now();
+        const COOLDOWN = 5 * 60 * 1000; // 5 minutos
+        if (now - lastTs > COOLDOWN) {
+          await Notifications.scheduleNotificationAsync({
+            content: {
+              title: 'Fumaça detectada!',
+              body: `Foi detectado ${smokeValue} ppm de fumaça.${
+                temperature !== null && temperature !== undefined
+                  ? ` Temperatura atual: ${temperature.toFixed(1)}°C.`
+                  : ''
+              }`,
+              sound: true,
+              priority: Notifications.AndroidNotificationPriority.HIGH,
+              data: { smokeValue, temperature, type: 'smoke' },
+            },
+            trigger: null,
+          });
+          await AsyncStorage.setItem(LAST_SMOKE_NOTIFICATION_KEY, String(now));
+          console.log('[BackgroundFetch] Notificação de fumaça enviada', {
+            smokeValue,
+            temperature,
+          });
+        } else {
+          console.log('[BackgroundFetch] Notificação de fumaça ignorada (cooldown)');
+        }
+      } catch (err) {
+        console.error('Erro ao gerenciar cooldown de notificação de fumaça:', err);
+      }
+    }
+  } catch (err) {
+    console.error('Erro ao checar fumaça em background:', err);
+  }
+};
+
 TaskManager.defineTask(TASK_NAME, async () => {
   console.log('[BackgroundFetch] Executando tarefa em background...');
   try {
-    // Buscar temperatura atual
+    // Buscar leitura mais recente (temperatura + fumaça)
     const { data, error } = await supabaseData
       .from('leituras_sensores')
-      .select('temperatura')
+      .select('temperatura, presenca_fumaca')
       .order('id', { ascending: false })
       .limit(1);
 
@@ -100,7 +148,17 @@ TaskManager.defineTask(TASK_NAME, async () => {
     }
 
     if (data && data.length > 0) {
-      await checkTemperatureAndNotify(data[0].temperatura);
+      const latest = data[0];
+      // Checar temperatura + fumaça
+      const smokeVal = Number(latest.presenca_fumaca ?? NaN);
+      if (typeof latest.temperatura === 'number') {
+        await checkTemperatureAndNotify(latest.temperatura, !isNaN(smokeVal) ? smokeVal : null);
+      }
+
+      // Checar fumaça separadamente (caso deseje notificação específica de fumaça)
+      if (!isNaN(smokeVal)) {
+        await checkSmokeAndNotify(smokeVal, latest.temperatura ?? null);
+      }
     }
 
     return BackgroundFetch.BackgroundFetchResult.NewData;
@@ -143,5 +201,19 @@ export const unregisterBackgroundTask = async () => {
     }
   } catch (err) {
     console.error('Erro ao cancelar tarefa em background:', err);
+  }
+};
+
+// Helpers para testes manuais (simular leituras e limpar cooldowns)
+export const simulateSensorReadings = async (temperatura: number, smokeValue?: number | null) => {
+  try {
+    // permitir utilizar as mesmas rotinas de verificação
+    await checkTemperatureAndNotify(temperatura, smokeValue ?? null);
+    if (smokeValue !== null && smokeValue !== undefined) {
+      await checkSmokeAndNotify(smokeValue, temperatura ?? null);
+    }
+    console.log('[BackgroundTask] Simulação executada', { temperatura, smokeValue });
+  } catch (err) {
+    console.error('Erro ao simular leituras:', err);
   }
 };

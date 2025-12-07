@@ -214,6 +214,8 @@ export default function HomeScreen() {
 
   const loading = tempLoading || weatherLoading;
 
+  const smokeDetected = Number(sensorData?.presenca_fumaca ?? 0) > (config.smoke?.threshold ?? 100);
+
   return (
     <ScrollView
       style={styles.scrollView}
@@ -248,13 +250,22 @@ export default function HomeScreen() {
         </View>
       </View>
 
+      {smokeDetected && (
+        <TouchableOpacity style={styles.alertCard} activeOpacity={0.9} onPress={() => {}}>
+          <View style={styles.alertIconWrap}>
+            <MaterialCommunityIcons name="bell" size={18} color="#F59E0B" />
+          </View>
+          <Text style={styles.alertCardText}>Alertas Recentes</Text>
+        </TouchableOpacity>
+      )}
+
       <View style={styles.secondPanel}>
         <View style={styles.row}>
           {[
             {
               icon: 'cloud',
               label: 'Fumaça',
-              value: Number(sensorData?.presenca_fumaca ?? 0) > 100 ? 'Sim' : 'Não',
+              value: Number(sensorData?.presenca_fumaca ?? 0) > (config.smoke?.threshold ?? 100) ? 'Sim' : 'Não',
             },
             {
               icon: 'water',
@@ -457,6 +468,35 @@ const styles = StyleSheet.create({
   retryButtonText: {
     color: '#FFFFFF',
     fontSize: 12,
+    fontWeight: '600',
+  },
+  alertCard: {
+    width: '100%',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 16,
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.12,
+    shadowRadius: 2,
+  },
+  alertIconWrap: {
+    width: 34,
+    height: 34,
+    borderRadius: 10,
+    backgroundColor: '#FFF7ED',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
+  },
+  alertCardText: {
+    color: '#334155',
+    fontSize: 16,
     fontWeight: '600',
   },
 });

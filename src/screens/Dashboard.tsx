@@ -261,10 +261,11 @@ export default function DashboardScreen() {
     setLoading(true); // Definir loading para true no início da busca
     try {
       console.log('Iniciando busca de dados do Supabase...');
+      // buscar as 7 leituras mais recentes
       const { data, error } = await supabaseData
         .from('leituras_sensores')
         .select('temperatura, umidade, presenca_fumaca, id')
-        .order('id', { ascending: true })
+        .order('id', { ascending: false })
         .limit(7);
 
       if (error) {
@@ -274,7 +275,10 @@ export default function DashboardScreen() {
 
       console.log('Dados brutos recebidos:', data);
 
-      const processedData = processChartData(data);
+      // Os dados vêm em ordem decrescente (mais recente primeiro). Para
+      // processar os gráficos e extrair o último elemento como leitura mais
+      // recente de forma intuitiva, invertemos para ordem cronológica.
+      const processedData = processChartData(Array.isArray(data) ? data.slice().reverse() : data);
 
       if (processedData) {
         setTemperatureData(processedData.temperature);

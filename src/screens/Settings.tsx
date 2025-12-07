@@ -40,6 +40,7 @@ export default function SettingsScreen() {
     })();
   }, []);
 
+
   const toggleNotifications = () => {
     setIsNotificationsEnabled((previousState) => !previousState);
   };
